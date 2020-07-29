@@ -47,6 +47,7 @@ type alias Model =
     { values : Dict String String
     , fields : List Field
     , openCategories : List String
+    , openSections : List String
     , fieldCategories : WebData (List FieldCategory)
     }
 
@@ -57,6 +58,7 @@ initModel _ =
       , fields = []
       , openCategories = []
       , fieldCategories = RemoteData.NotAsked
+      , openSections = [ "selected criteria" ]
       }
     , getCategories
     )
@@ -72,7 +74,7 @@ view model =
         , subContainer []
             [ renderInputs model ]
         , subContainer []
-            [ styledButton [] [ onClick GetCategories ] [ text "reset" ]
+            [ styledButton [] [ onClick Reset ] [ text "reset" ]
             , styledButton [] [ onClick Submit ] [ text "submit" ]
             ]
         ]
@@ -130,8 +132,11 @@ renderFieldCategories model =
 
         RemoteData.Success cats ->
             let
+                section =
+                    "criteria"
+
                 children =
-                    (List.append [ h3 [] [ text "criteria" ] ] (List.map (renderCategory model) cats))
+                    (List.append (renderHeader model section) (List.map (renderCategory model section) cats))
             in
                 div []
                     children
@@ -144,22 +149,46 @@ renderFieldCategories model =
                 div [] [ text "something went wrong" ]
 
 
-renderCategory : Model -> FieldCategory -> Html Msg
-renderCategory model category =
+renderHeader : Model -> String -> List (Html Msg)
+renderHeader model headerName =
+    let
+        showSection =
+            List.any (\s -> s == headerName) model.openSections
+
+        emoji =
+            if showSection then
+                "➖"
+            else
+                "➕"
+    in
+        [ styledH3 [ onClick (ToggleSection headerName) ] [ text (headerName ++ " " ++ emoji) ] ]
+
+
+renderCategory : Model -> String -> FieldCategory -> Html Msg
+renderCategory model section category =
     let
         isOpen =
             List.any (\c -> c == category.name) model.openCategories
+
+        showSection =
+            List.any (\s -> s == section) model.openSections
 
         criteria =
             if isOpen then
                 (List.map (renderFields model) category.criteria)
             else
                 []
+
+        cat =
+            if showSection then
+                categoryContainer []
+                    [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
+                    , fieldsContainer [] criteria
+                    ]
+            else
+                div [] []
     in
-        categoryContainer []
-            [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
-            , fieldsContainer [] criteria
-            ]
+        cat
 
 
 getFieldData : Model -> Field -> { field : Field, value : Maybe String }
@@ -174,19 +203,25 @@ getFieldData model field =
 renderInputs : Model -> Html Msg
 renderInputs model =
     let
+        section =
+            "selected criteria"
+
         fieldList =
             List.map (getFieldData model) model.fields
 
-        header =
-            if (List.isEmpty fieldList) then
-                []
+        showSection =
+            List.any (\s -> s == section) model.openSections
+
+        inputs =
+            if showSection then
+                (List.map renderInput fieldList)
             else
-                [ h3 [] [ text "selected criteria" ] ]
+                []
 
         children =
-            (List.append header (List.map renderInput fieldList))
+            (List.append (renderHeader model section) inputs)
     in
-        div []
+        selectedCriteriaContainer []
             children
 
 
@@ -231,11 +266,14 @@ categoryContainer =
 fieldsContainer : StyledEl div
 fieldsContainer =
     styled div
-        [--  displayFlex
-         -- , alignItems flexStart
-         -- , flexWrap wrap
-         -- , overflowX scroll
-         -- , maxWidth (vw 200)
+        []
+
+
+styledH3 : StyledEl h3
+styledH3 =
+    styled h3
+        [ cursor pointer
+        , textDecoration underline
         ]
 
 
@@ -243,6 +281,13 @@ styledH4 : StyledEl h4
 styledH4 =
     styled h4
         [ cursor pointer ]
+
+
+selectedCriteriaContainer : StyledEl div
+selectedCriteriaContainer =
+    styled div
+        [ marginTop (rem 3)
+        ]
 
 
 subContainer : StyledEl div
@@ -333,6 +378,7 @@ type Msg
     | Submit
     | SelectField Field
     | ToggleCategory String
+    | ToggleSection String
     | GetCategories
     | SetCategories (WebData (List FieldCategory))
 
@@ -402,6 +448,19 @@ update msg model =
                         model.values
             in
                 ( { model | fields = fields, values = values }, Cmd.none )
+
+        ToggleSection section ->
+            let
+                hasSection =
+                    List.any (\c -> c == section) model.openSections
+
+                openSections =
+                    if hasSection then
+                        List.filter (\c -> c /= section) model.openSections
+                    else
+                        model.openSections ++ [ section ]
+            in
+                ( { model | openSections = openSections }, Cmd.none )
 
         ToggleCategory cat ->
             let
