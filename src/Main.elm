@@ -12,10 +12,17 @@ import Html.Styled.Events exposing (onInput, onClick)
 type alias StyledEl msg =
     List (Attribute msg) -> List (Html msg) -> Html msg
 
-
+type alias FieldOption =
+    { display : String
+    , value : String
+    }
+type alias Field =
+    { title : String
+    , options : List FieldOption
+    }
 type alias Model =
     { values : Dict String String
-    , fields : List String
+    , fields : List Field
     }
 
 
@@ -33,11 +40,11 @@ view model =
         , Html.Styled.em [] [ text "select search criteria" ]
         , optionsContainer [ class "test" ]
             [ subContainer []
-                (List.map (renderOptions model) options)
+                (List.map (renderFields model) inputFields)
             ]
         , subContainer []
             [renderInputs model]
-                        , subContainer []
+        , subContainer []
             [ styledButton [] [ onClick Reset ] [ text "reset" ]
             , styledButton [] [ onClick Submit ] [ text "submit" ]
             ]
@@ -45,50 +52,47 @@ view model =
         ]
 
 
-type alias Option =
-    { title : String }
-
-
-options : List Option
-options =
-    [ { title = "genus" }
-    , { title = "common name" }
-    , { title = "symbol" }
-    , { title = "species" }
-    , { title = "family" }
-    , { title = "growth habit" }
-    , { title = "duration" }
-    , { title = "native status" }
+inputFields : List Field
+inputFields =
+    [ { title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { title = "growth habit" , options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ]}
+    , { title = "duration" , options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ]}
+    , { title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
     ]
 
 
-renderOptions : Model -> Option -> Html Msg
-renderOptions model opt =
+renderFields : Model -> Field -> Html Msg
+renderFields model field =
     let
-        selected = List.any (\f -> f == opt.title) model.fields
+        selected = List.any (\f -> f.title == field.title) model.fields
         attrs = if selected then [("selected", True)] else []
     in
-    styledButton attrs [ onClick (HandleSelect opt.title) ]
-        [ text opt.title ]
+    styledButton attrs [ onClick (SelectField field) ]
+        [ text field.title ]
 
+getFieldData : Model -> Field -> { field : Field, value : Maybe String }
+getFieldData model field =
+    let
+        val =
+            Dict.get field.title model.values
+    in
+        { field = field, value = val }
 
+renderInputs : Model -> Html Msg
 renderInputs model =
     let
-        getFieldData field =
-            let
-                val =
-                    Dict.get field model.values
-            in
-                { field = field, value = val }
-
         fieldList =
-            List.map getFieldData model.fields
+            List.map (getFieldData model) model.fields
     in
         div []
             (List.map renderInput fieldList)
 
 
-renderInput : { field : String, value : Maybe String } -> Html Msg
+renderInput : { field : Field, value : Maybe String } -> Html Msg
 renderInput inputType =
     let
         val =
@@ -100,10 +104,14 @@ renderInput inputType =
                     v
     in
         div []
-            [ label [] [ text inputType.field ]
-            , styledInput [ value val, onInput (SetValue inputType.field) ] []
+            [ label [] [ text inputType.field.title ]
+            , styledSelect [ value val, onInput (SetValue inputType.field.title) ]
+                (List.map renderOption inputType.field.options)
             ]
 
+renderOption : FieldOption -> Html Msg
+renderOption opt =
+    option [ value opt.value ] [ text opt.display ]
 
 subContainer : StyledEl div
 subContainer =
@@ -176,7 +184,7 @@ type Msg
     = Reset
     | SetValue String String
     | Submit
-    | HandleSelect String
+    | SelectField Field
 
 
 update : Msg -> Model -> Model
@@ -189,23 +197,20 @@ update msg model =
             in
                 { model | values = updated }
 
-        HandleSelect val ->
+        SelectField val ->
             let
-                value =
-                    Debug.log "val" val
-
                 hasField =
-                    List.any (\f -> f == val) model.fields
+                    List.any (\f -> f.title == val.title) model.fields
 
                 fields =
                     if hasField then
-                        List.filter (\f -> f /= val) model.fields
+                        List.filter (\f -> f.title /= val.title) model.fields
                     else
                         model.fields ++ [ val ]
 
                 values =
                     if hasField then
-                        Dict.remove val model.values
+                        Dict.remove val.title model.values
                     else
                         model.values
             in
