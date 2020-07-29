@@ -9,20 +9,36 @@ import Html.Styled.Attributes exposing (value, multiple, size, class)
 import Html.Styled.Events exposing (onInput, onClick)
 
 
+-- [ { name, critiera: [ { key, display, options: [ { value, display } ]} ] } ]
+
+
 type alias StyledEl msg =
     List (Attribute msg) -> List (Html msg) -> Html msg
+
 
 type alias FieldOption =
     { display : String
     , value : String
     }
+
+
 type alias Field =
     { title : String
     , options : List FieldOption
+    , key : String
     }
+
+
+type alias FieldCategory =
+    { name : String
+    , criteria : List Field
+    }
+
+
 type alias Model =
     { values : Dict String String
     , fields : List Field
+    , openCategories : List String
     }
 
 
@@ -30,6 +46,7 @@ initModel : Model
 initModel =
     { values = Dict.empty
     , fields = []
+    , openCategories = []
     }
 
 
@@ -38,41 +55,91 @@ view model =
     container []
         [ h2 [] [ text "plants" ]
         , Html.Styled.em [] [ text "select search criteria" ]
-        , optionsContainer [ class "test" ]
-            [ subContainer []
-                (List.map (renderFields model) inputFields)
-            ]
         , subContainer []
-            [renderInputs model]
+            [ renderFieldCategories model fieldCategories ]
+        , subContainer []
+            [ renderInputs model ]
         , subContainer []
             [ styledButton [] [ onClick Reset ] [ text "reset" ]
             , styledButton [] [ onClick Submit ] [ text "submit" ]
             ]
-
         ]
+
+
+fieldCategories : List FieldCategory
+fieldCategories =
+    [ { name = "Taxonomy"
+      , criteria =
+            [ { key = "genus", title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "common name", title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "symbol", title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "species", title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "family", title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            ]
+      }
+    , { name = "Ecology"
+      , criteria =
+            [ { key = "growth habit", title = "growth habit", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "duration", title = "duration", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            , { key = "native status", title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+            ]
+      }
+    ]
 
 
 inputFields : List Field
 inputFields =
-    [ { title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { title = "growth habit" , options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ]}
-    , { title = "duration" , options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ]}
-    , { title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    [ { key = "genus", title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "common name", title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "symbol", title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "species", title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "family", title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "growth habit", title = "growth habit", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "duration", title = "duration", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
+    , { key = "native status", title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
     ]
 
 
 renderFields : Model -> Field -> Html Msg
 renderFields model field =
     let
-        selected = List.any (\f -> f.title == field.title) model.fields
-        attrs = if selected then [("selected", True)] else []
+        selected =
+            List.any (\f -> f.title == field.title) model.fields
+
+        attrs =
+            if selected then
+                [ ( "selected", True ) ]
+            else
+                []
     in
-    styledButton attrs [ onClick (SelectField field) ]
-        [ text field.title ]
+        styledButton attrs
+            [ onClick (SelectField field) ]
+            [ text field.title ]
+
+
+renderFieldCategories : Model -> List FieldCategory -> Html Msg
+renderFieldCategories model categories =
+    div []
+        (List.map (renderCategory model) categories)
+
+
+renderCategory : Model -> FieldCategory -> Html Msg
+renderCategory model category =
+    let
+        isOpen =
+            List.any (\c -> c == category.name) model.openCategories
+
+        criteria =
+            if isOpen then
+                (List.map (renderFields model) category.criteria)
+            else
+                []
+    in
+        div []
+            [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
+            , div [] criteria
+            ]
+
 
 getFieldData : Model -> Field -> { field : Field, value : Maybe String }
 getFieldData model field =
@@ -81,6 +148,7 @@ getFieldData model field =
             Dict.get field.title model.values
     in
         { field = field, value = val }
+
 
 renderInputs : Model -> Html Msg
 renderInputs model =
@@ -109,15 +177,24 @@ renderInput inputType =
                 (List.map renderOption inputType.field.options)
             ]
 
+
 renderOption : FieldOption -> Html Msg
 renderOption opt =
     option [ value opt.value ] [ text opt.display ]
+
+
+styledH4 : StyledEl h4
+styledH4 =
+    styled h4
+        [ cursor pointer ]
+
 
 subContainer : StyledEl div
 subContainer =
     styled div
         [ fontSize (px 16)
-        , marginTop (rem 1)]
+        , marginTop (rem 1)
+        ]
 
 
 optionsContainer : StyledEl div
@@ -136,31 +213,38 @@ container =
         ]
 
 
-styledButton : List (String, Bool) -> StyledEl button
+styledButton : List ( String, Bool ) -> StyledEl button
 styledButton props =
     let
         selected =
             List.any (\t -> (Tuple.first t) == "selected") props
-        bgColor =
-            if selected then "#000" else "#fff"
-        fontColor =
-            if selected then "#fff" else "#000"
 
+        bgColor =
+            if selected then
+                "#000"
+            else
+                "#fff"
+
+        fontColor =
+            if selected then
+                "#fff"
+            else
+                "#000"
     in
-    styled button
-        [ backgroundColor (hex bgColor)
-        , color (hex fontColor)
-        , border3 (px 1) dashed (hex "#000")
-        , padding2 (rem 0.5) (rem 1)
-        , marginRight (rem 0.5)
-        , marginBottom (rem 0.5)
-        , cursor pointer
-        , fontFamily inherit
-        , fontSize inherit
-        , hover
-            [ fontWeight bold
+        styled button
+            [ backgroundColor (hex bgColor)
+            , color (hex fontColor)
+            , border3 (px 1) dashed (hex "#000")
+            , padding2 (rem 0.5) (rem 1)
+            , marginRight (rem 0.5)
+            , marginBottom (rem 0.5)
+            , cursor pointer
+            , fontFamily inherit
+            , fontSize inherit
+            , hover
+                [ fontWeight bold
+                ]
             ]
-        ]
 
 
 styledSelect : StyledEl select
@@ -185,6 +269,7 @@ type Msg
     | SetValue String String
     | Submit
     | SelectField Field
+    | ToggleCategory String
 
 
 update : Msg -> Model -> Model
@@ -215,6 +300,19 @@ update msg model =
                         model.values
             in
                 { model | fields = fields, values = values }
+
+        ToggleCategory cat ->
+            let
+                hasCat =
+                    List.any (\c -> c == cat) model.openCategories
+
+                openCategories =
+                    if hasCat then
+                        List.filter (\c -> c /= cat) model.openCategories
+                    else
+                        model.openCategories ++ [ cat ]
+            in
+                { model | openCategories = openCategories }
 
         Reset ->
             initModel
