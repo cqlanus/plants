@@ -1,12 +1,16 @@
 module Main exposing (main)
 
 import Browser
+import Http
 import Css exposing (..)
 import Dict exposing (Dict)
 import VirtualDom
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (value, multiple, size, class)
+import Html.Styled.Attributes exposing (value, multiple, size, class, style)
 import Html.Styled.Events exposing (onInput, onClick)
+import Json.Decode as Decode exposing (Decoder, succeed, string, list)
+import Json.Decode.Pipeline as Json exposing (optional, optionalAt, required, requiredAt)
+import RemoteData exposing (RemoteData, WebData)
 
 
 -- [ { name, critiera: [ { key, display, options: [ { value, display } ]} ] } ]
@@ -29,9 +33,13 @@ type alias Field =
     }
 
 
+type alias FieldCriteria =
+    List Field
+
+
 type alias FieldCategory =
     { name : String
-    , criteria : List Field
+    , criteria : FieldCriteria
     }
 
 
@@ -39,15 +47,19 @@ type alias Model =
     { values : Dict String String
     , fields : List Field
     , openCategories : List String
+    , fieldCategories : WebData (List FieldCategory)
     }
 
 
-initModel : Model
-initModel =
-    { values = Dict.empty
-    , fields = []
-    , openCategories = []
-    }
+initModel : () -> ( Model, Cmd Msg )
+initModel _ =
+    ( { values = Dict.empty
+      , fields = []
+      , openCategories = []
+      , fieldCategories = RemoteData.NotAsked
+      }
+    , getCategories
+    )
 
 
 view : Model -> Html Msg
@@ -56,11 +68,11 @@ view model =
         [ h2 [] [ text "plants" ]
         , Html.Styled.em [] [ text "select search criteria" ]
         , subContainer []
-            [ renderFieldCategories model fieldCategories ]
+            [ renderFieldCategories model ]
         , subContainer []
             [ renderInputs model ]
         , subContainer []
-            [ styledButton [] [ onClick Reset ] [ text "reset" ]
+            [ styledButton [] [ onClick GetCategories ] [ text "reset" ]
             , styledButton [] [ onClick Submit ] [ text "submit" ]
             ]
         ]
@@ -87,22 +99,12 @@ fieldCategories =
     ]
 
 
-inputFields : List Field
-inputFields =
-    [ { key = "genus", title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "common name", title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "symbol", title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "species", title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "family", title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "growth habit", title = "growth habit", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "duration", title = "duration", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    , { key = "native status", title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-    ]
-
-
 renderFields : Model -> Field -> Html Msg
 renderFields model field =
     let
+        test =
+            Debug.log "field" field
+
         selected =
             List.any (\f -> f.title == field.title) model.fields
 
@@ -114,13 +116,32 @@ renderFields model field =
     in
         styledButton attrs
             [ onClick (SelectField field) ]
-            [ text field.title ]
+            [ text field.key ]
 
 
-renderFieldCategories : Model -> List FieldCategory -> Html Msg
-renderFieldCategories model categories =
-    div []
-        (List.map (renderCategory model) categories)
+renderFieldCategories : Model -> Html Msg
+renderFieldCategories model =
+    case model.fieldCategories of
+        RemoteData.NotAsked ->
+            div [] [ text "loading..." ]
+
+        RemoteData.Loading ->
+            div [] [ text "loading..." ]
+
+        RemoteData.Success cats ->
+            let
+                children =
+                    (List.append [ h3 [] [ text "criteria" ] ] (List.map (renderCategory model) cats))
+            in
+                div []
+                    children
+
+        RemoteData.Failure err ->
+            let
+                test =
+                    Debug.log "err" err
+            in
+                div [] [ text "something went wrong" ]
 
 
 renderCategory : Model -> FieldCategory -> Html Msg
@@ -135,9 +156,9 @@ renderCategory model category =
             else
                 []
     in
-        div []
+        categoryContainer []
             [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
-            , div [] criteria
+            , fieldsContainer [] criteria
             ]
 
 
@@ -155,9 +176,18 @@ renderInputs model =
     let
         fieldList =
             List.map (getFieldData model) model.fields
+
+        header =
+            if (List.isEmpty fieldList) then
+                []
+            else
+                [ h3 [] [ text "selected criteria" ] ]
+
+        children =
+            (List.append header (List.map renderInput fieldList))
     in
         div []
-            (List.map renderInput fieldList)
+            children
 
 
 renderInput : { field : Field, value : Maybe String } -> Html Msg
@@ -171,8 +201,8 @@ renderInput inputType =
                 Just v ->
                     v
     in
-        div []
-            [ label [] [ text inputType.field.title ]
+        inputContainer []
+            [ styledLabel [] [ text (String.append inputType.field.key ": ") ]
             , styledSelect [ value val, onInput (SetValue inputType.field.title) ]
                 (List.map renderOption inputType.field.options)
             ]
@@ -181,6 +211,32 @@ renderInput inputType =
 renderOption : FieldOption -> Html Msg
 renderOption opt =
     option [ value opt.value ] [ text opt.display ]
+
+
+inputContainer : StyledEl div
+inputContainer =
+    styled div
+        [ displayFlex
+        , alignItems center
+        , marginBottom (rem 0.5)
+        ]
+
+
+categoryContainer : StyledEl div
+categoryContainer =
+    styled div
+        []
+
+
+fieldsContainer : StyledEl div
+fieldsContainer =
+    styled div
+        [--  displayFlex
+         -- , alignItems flexStart
+         -- , flexWrap wrap
+         -- , overflowX scroll
+         -- , maxWidth (vw 200)
+        ]
 
 
 styledH4 : StyledEl h4
@@ -240,18 +296,25 @@ styledButton props =
             , marginBottom (rem 0.5)
             , cursor pointer
             , fontFamily inherit
-            , fontSize inherit
+            , fontSize (rem 0.7)
             , hover
                 [ fontWeight bold
                 ]
             ]
 
 
+styledLabel : StyledEl label
+styledLabel =
+    styled label
+        [ marginRight (rem 1) ]
+
+
 styledSelect : StyledEl select
 styledSelect =
     styled select
         [ border3 (px 1) dashed (hex "#000")
-        , padding (px 4)
+        , padding (rem 0.4)
+        , flex (num 1)
         ]
 
 
@@ -270,9 +333,48 @@ type Msg
     | Submit
     | SelectField Field
     | ToggleCategory String
+    | GetCategories
+    | SetCategories (WebData (List FieldCategory))
 
 
-update : Msg -> Model -> Model
+url : String
+url =
+    "http://localhost:9001/category"
+
+
+optionDecoder : Decoder FieldOption
+optionDecoder =
+    Decode.succeed FieldOption
+        |> Json.required "display" string
+        |> Json.required "value" string
+
+
+criteriaDecoder : Decoder Field
+criteriaDecoder =
+    Decode.succeed Field
+        |> Json.required "key" string
+        |> Json.required "options" (list optionDecoder)
+        |> Json.required "title" string
+
+
+categoryDecoder : Decoder FieldCategory
+categoryDecoder =
+    Decode.succeed FieldCategory
+        |> Json.required "name" string
+        |> Json.required "criteria" (list criteriaDecoder)
+
+
+getCategories : Cmd Msg
+getCategories =
+    Http.get
+        { url = url
+        , expect =
+            list categoryDecoder
+                |> Http.expectJson (RemoteData.fromResult >> SetCategories)
+        }
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetValue key val ->
@@ -280,7 +382,7 @@ update msg model =
                 updated =
                     Dict.insert key val model.values
             in
-                { model | values = updated }
+                ( { model | values = updated }, Cmd.none )
 
         SelectField val ->
             let
@@ -299,7 +401,7 @@ update msg model =
                     else
                         model.values
             in
-                { model | fields = fields, values = values }
+                ( { model | fields = fields, values = values }, Cmd.none )
 
         ToggleCategory cat ->
             let
@@ -312,23 +414,30 @@ update msg model =
                     else
                         model.openCategories ++ [ cat ]
             in
-                { model | openCategories = openCategories }
+                ( { model | openCategories = openCategories }, Cmd.none )
+
+        GetCategories ->
+            ( { model | fieldCategories = RemoteData.Loading }, getCategories )
+
+        SetCategories response ->
+            ( { model | fieldCategories = response }, Cmd.none )
 
         Reset ->
-            initModel
+            ( { model | values = Dict.empty, fields = [] }, Cmd.none )
 
         Submit ->
             let
                 test =
-                    Debug.log "model" model
+                    Debug.log "values" model.values
             in
-                model
+                ( model, Cmd.none )
 
 
 main : Program () Model Msg
 main =
-    Browser.sandbox
+    Browser.element
         { init = initModel
         , view = view >> toUnstyled
         , update = update
+        , subscriptions = \_ -> Sub.none
         }
