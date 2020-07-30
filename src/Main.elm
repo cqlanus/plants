@@ -58,7 +58,7 @@ initModel _ =
       , fields = []
       , openCategories = []
       , fieldCategories = RemoteData.NotAsked
-      , openSections = [ "selected criteria" ]
+      , openSections = [ "selected criteria", "simple criteria" ]
       }
     , getCategories
     )
@@ -70,6 +70,8 @@ view model =
         [ h2 [] [ text "plants" ]
         , Html.Styled.em [] [ text "select search criteria" ]
         , subContainer []
+            [ renderTextCategory model ]
+        , subContainer []
             [ renderFieldCategories model ]
         , subContainer []
             [ renderInputs model ]
@@ -79,33 +81,19 @@ view model =
             ]
         ]
 
-
-fieldCategories : List FieldCategory
-fieldCategories =
-    [ { name = "Taxonomy"
-      , criteria =
-            [ { key = "genus", title = "genus", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "common name", title = "common name", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "symbol", title = "symbol", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "species", title = "species", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "family", title = "family", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            ]
-      }
-    , { name = "Ecology"
-      , criteria =
-            [ { key = "growth habit", title = "growth habit", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "duration", title = "duration", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            , { key = "native status", title = "native status", options = [ { display = "A", value = "a" }, { display = "B", value = "b" } ] }
-            ]
-      }
+textFields : List String
+textFields =
+    [ "genus", "species", "symbol" ]
+simpleFields : List Field
+simpleFields =
+    [ { title= "Genus", key= "genus", options= []  }
+    , { title= "Species", key= "species", options= []  }
+    , { title= "Symbol", key= "symbol", options= []  }
     ]
-
 
 renderFields : Model -> Field -> Html Msg
 renderFields model field =
     let
-        test =
-            Debug.log "field" field
 
         selected =
             List.any (\f -> f.title == field.title) model.fields
@@ -121,6 +109,27 @@ renderFields model field =
             [ text field.key ]
 
 
+renderTextCategory : Model -> Html Msg
+renderTextCategory model =
+    let
+        section =
+            "simple criteria"
+
+        showSection =
+            List.any (\s -> s == section) model.openSections
+
+        header =
+            (renderHeader model section)
+
+        fields =
+            if showSection then
+                (List.map (renderFields model) simpleFields)
+            else
+                []
+    in
+        div []
+            (List.append header fields)
+
 renderFieldCategories : Model -> Html Msg
 renderFieldCategories model =
     case model.fieldCategories of
@@ -133,7 +142,7 @@ renderFieldCategories model =
         RemoteData.Success cats ->
             let
                 section =
-                    "criteria"
+                    "advanced criteria"
 
                 children =
                     (List.append (renderHeader model section) (List.map (renderCategory model section) cats))
@@ -190,6 +199,13 @@ renderCategory model section category =
     in
         cat
 
+getTextFieldData : Model -> Field -> { field : Field, value : Maybe String }
+getTextFieldData model field =
+    let
+        val =
+            Dict.get field.title model.values
+    in
+        { field = field, value = val }
 
 getFieldData : Model -> Field -> { field : Field, value : Maybe String }
 getFieldData model field =
@@ -235,11 +251,19 @@ renderInput inputType =
 
                 Just v ->
                     v
+        isText =
+            List.any (\f -> inputType.field.key == f) textFields
+        attrs = [ value val, onInput (SetValue inputType.field.title) ]
+        input =
+            if isText then
+                styledInput attrs []
+            else
+                styledSelect attrs (List.map renderOption inputType.field.options)
+
     in
         inputContainer []
             [ styledLabel [] [ text (String.append inputType.field.key ": ") ]
-            , styledSelect [ value val, onInput (SetValue inputType.field.title) ]
-                (List.map renderOption inputType.field.options)
+            , input
             ]
 
 
@@ -367,8 +391,8 @@ styledInput : StyledEl input
 styledInput =
     styled input
         [ border3 (px 1) dashed (hex "#000")
-        , marginRight (rem 1)
-        , padding (px 4)
+        , padding (rem 0.4)
+        , flex (num 1)
         ]
 
 
@@ -385,7 +409,7 @@ type Msg
 
 url : String
 url =
-    "http://localhost:9001/category"
+    "http://localhost:9002/category"
 
 
 optionDecoder : Decoder FieldOption
