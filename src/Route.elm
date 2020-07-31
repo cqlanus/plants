@@ -1,5 +1,6 @@
-module Route exposing (Route(..), parseUrl)
+module Route exposing (Route(..), parseUrl, pushUrl)
 
+import Browser.Navigation as Nav
 import Url exposing (Url)
 import Url.Parser exposing (..)
 
@@ -7,6 +8,7 @@ import Url.Parser exposing (..)
 type Route
     = NotFound
     | Plants
+    | Search
 
 
 parseUrl : Url -> Route
@@ -22,6 +24,26 @@ parseUrl url =
 matchRoute : Parser (Route -> a) a
 matchRoute =
     oneOf
-        [ map Plants top
+        [ map Search top
+        , map Search (s "search")
         , map Plants (s "plants")
         ]
+
+
+pushUrl : Route -> Nav.Key -> Cmd msg
+pushUrl route navKey =
+    routeToString route
+        |> Nav.pushUrl navKey
+
+
+routeToString : Route -> String
+routeToString route =
+    case route of
+        NotFound ->
+            "/not-found"
+
+        Plants ->
+            "/plants"
+
+        Search ->
+            "/search"

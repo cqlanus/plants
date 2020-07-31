@@ -1,5 +1,7 @@
 module Page.Search exposing (Model, Msg, initModel, update, view)
 
+import Browser exposing (UrlRequest)
+import Browser.Navigation as Nav
 import Css exposing (..)
 import Dict exposing (Dict)
 import Field exposing (Field, FieldCategory, FieldData, FieldOption, categoryDecoder)
@@ -11,6 +13,7 @@ import Json.Decode exposing (list)
 import Plant exposing (Plant, plantDecoder)
 import QS exposing (serialize)
 import RemoteData exposing (WebData)
+import Route exposing (pushUrl)
 
 
 type alias StyledEl msg =
@@ -23,17 +26,24 @@ type alias Model =
     , openCategories : List String
     , openSections : List String
     , fieldCategories : WebData (List FieldCategory)
+    , navKey : Nav.Key
     }
 
 
-initModel : ( Model, Cmd Msg )
-initModel =
-    ( { values = Dict.empty
-      , fields = []
-      , openCategories = []
-      , fieldCategories = RemoteData.NotAsked
-      , openSections = [ "selected criteria", "simple criteria" ]
-      }
+createModel : Nav.Key -> Model
+createModel navKey =
+    { values = Dict.empty
+    , fields = []
+    , openCategories = []
+    , fieldCategories = RemoteData.NotAsked
+    , openSections = [ "selected criteria", "simple criteria" ]
+    , navKey = navKey
+    }
+
+
+initModel : Nav.Key -> ( Model, Cmd Msg )
+initModel navKey =
+    ( createModel navKey
     , getCategories
     )
 
@@ -497,7 +507,7 @@ update msg model =
                 plants_ =
                     Debug.log "plants" plants
             in
-            ( model, Cmd.none )
+            ( model, Route.pushUrl Route.Plants model.navKey )
 
         Reset ->
             ( { model | values = Dict.empty, fields = [] }, Cmd.none )

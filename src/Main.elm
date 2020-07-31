@@ -4,6 +4,7 @@ import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Styled exposing (toUnstyled)
+import Page.Plants as Plants
 import Page.Search as Search exposing (update)
 import Route exposing (Route)
 import Url exposing (Url)
@@ -19,10 +20,11 @@ type alias Model =
 type Page
     = NotFoundPage
     | SearchPage Search.Model
+    | PlantsPage Plants.Model
 
 
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url navKey =
+init _ url navKey =
     let
         model =
             { route = Route.parseUrl url
@@ -41,12 +43,19 @@ initCurrentPage ( model, existingCmds ) =
                 Route.NotFound ->
                     ( NotFoundPage, Cmd.none )
 
+                Route.Search ->
+                    let
+                        ( pageModel, pageCmds ) =
+                            Search.initModel model.navKey
+                    in
+                    ( SearchPage pageModel, Cmd.map SearchPageMsg pageCmds )
+
                 Route.Plants ->
                     let
                         ( pageModel, pageCmds ) =
-                            Search.initModel
+                            Plants.initModel model.navKey
                     in
-                    ( SearchPage pageModel, Cmd.map SearchPageMsg pageCmds )
+                    ( PlantsPage pageModel, Cmd.map PlantsPageMsg pageCmds )
     in
     ( { model | page = currentPage }
     , Cmd.batch [ existingCmds, mappedPageCmds ]
@@ -55,6 +64,7 @@ initCurrentPage ( model, existingCmds ) =
 
 type Msg
     = SearchPageMsg Search.Msg
+    | PlantsPageMsg Plants.Msg
     | LinkClicked UrlRequest
     | UrlChanged Url
 
@@ -75,6 +85,10 @@ currentView model =
         SearchPage pageModel ->
             (Search.view >> toUnstyled) pageModel
                 |> Html.map SearchPageMsg
+
+        PlantsPage pageModel ->
+            Plants.view pageModel
+                |> Html.map PlantsPageMsg
 
 
 notFoundView : Html msg
