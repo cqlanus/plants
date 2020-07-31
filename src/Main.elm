@@ -1,23 +1,29 @@
 module Main exposing (main)
 
 import Browser
-import Http
 import Css exposing (..)
 import Dict exposing (Dict)
-import VirtualDom
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (value, multiple, size, class, style)
-import Html.Styled.Events exposing (onInput, onClick)
-import Json.Decode as Decode exposing (Decoder, succeed, string, list)
-import Json.Decode.Pipeline as Json exposing (optional, optionalAt, required, requiredAt)
-import RemoteData exposing (RemoteData, WebData)
-
-
--- [ { name, critiera: [ { key, display, options: [ { value, display } ]} ] } ]
+import Html.Styled.Attributes exposing (value)
+import Html.Styled.Events exposing (onClick, onInput)
+import Http
+import Json.Decode as Decode exposing (Decoder, list, string, succeed)
+import Json.Decode.Pipeline as Json exposing (required)
+import QS exposing (serialize)
+import RemoteData exposing (WebData)
 
 
 type alias StyledEl msg =
     List (Attribute msg) -> List (Html msg) -> Html msg
+
+
+type alias Plant =
+    { id : Int
+    , species : String
+    , genus : String
+    , common_name : String
+    , symbol : String
+    }
 
 
 type alias FieldOption =
@@ -40,6 +46,12 @@ type alias FieldCriteria =
 type alias FieldCategory =
     { name : String
     , criteria : FieldCriteria
+    }
+
+
+type alias FieldData =
+    { field : Field
+    , value : Maybe String
     }
 
 
@@ -81,32 +93,36 @@ view model =
             ]
         ]
 
+
 textFields : List String
 textFields =
     [ "genus", "species", "symbol" ]
+
+
 simpleFields : List Field
 simpleFields =
-    [ { title= "Genus", key= "genus", options= []  }
-    , { title= "Species", key= "species", options= []  }
-    , { title= "Symbol", key= "symbol", options= []  }
+    [ { title = "Genus", key = "genus", options = [] }
+    , { title = "Species", key = "species", options = [] }
+    , { title = "Symbol", key = "symbol", options = [] }
     ]
+
 
 renderFields : Model -> Field -> Html Msg
 renderFields model field =
     let
-
         selected =
             List.any (\f -> f.title == field.title) model.fields
 
         attrs =
             if selected then
                 [ ( "selected", True ) ]
+
             else
                 []
     in
-        styledButton attrs
-            [ onClick (SelectField field) ]
-            [ text field.key ]
+    styledButton attrs
+        [ onClick (SelectField field) ]
+        [ text field.key ]
 
 
 renderTextCategory : Model -> Html Msg
@@ -116,19 +132,21 @@ renderTextCategory model =
             "simple criteria"
 
         showSection =
-            List.any (\s -> s == section) model.openSections
+            List.member section model.openSections
 
         header =
-            (renderHeader model section)
+            renderHeader model section
 
         fields =
             if showSection then
-                (List.map (renderFields model) simpleFields)
+                List.map (renderFields model) simpleFields
+
             else
                 []
     in
-        div []
-            (List.append header fields)
+    div []
+        (List.append header fields)
+
 
 renderFieldCategories : Model -> Html Msg
 renderFieldCategories model =
@@ -145,46 +163,44 @@ renderFieldCategories model =
                     "advanced criteria"
 
                 children =
-                    (List.append (renderHeader model section) (List.map (renderCategory model section) cats))
+                    List.append (renderHeader model section) (List.map (renderCategory model section) cats)
             in
-                div []
-                    children
+            div []
+                children
 
-        RemoteData.Failure err ->
-            let
-                test =
-                    Debug.log "err" err
-            in
-                div [] [ text "something went wrong" ]
+        RemoteData.Failure _ ->
+            div [] [ text "something went wrong" ]
 
 
 renderHeader : Model -> String -> List (Html Msg)
 renderHeader model headerName =
     let
         showSection =
-            List.any (\s -> s == headerName) model.openSections
+            List.member headerName model.openSections
 
         emoji =
             if showSection then
                 "➖"
+
             else
                 "➕"
     in
-        [ styledH3 [ onClick (ToggleSection headerName) ] [ text (headerName ++ " " ++ emoji) ] ]
+    [ styledH3 [ onClick (ToggleSection headerName) ] [ text (headerName ++ " " ++ emoji) ] ]
 
 
 renderCategory : Model -> String -> FieldCategory -> Html Msg
 renderCategory model section category =
     let
         isOpen =
-            List.any (\c -> c == category.name) model.openCategories
+            List.member category.name model.openCategories
 
         showSection =
-            List.any (\s -> s == section) model.openSections
+            List.member section model.openSections
 
         criteria =
             if isOpen then
-                (List.map (renderFields model) category.criteria)
+                List.map (renderFields model) category.criteria
+
             else
                 []
 
@@ -194,26 +210,20 @@ renderCategory model section category =
                     [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
                     , fieldsContainer [] criteria
                     ]
+
             else
                 div [] []
     in
-        cat
+    cat
 
-getTextFieldData : Model -> Field -> { field : Field, value : Maybe String }
-getTextFieldData model field =
-    let
-        val =
-            Dict.get field.title model.values
-    in
-        { field = field, value = val }
 
-getFieldData : Model -> Field -> { field : Field, value : Maybe String }
+getFieldData : Model -> Field -> FieldData
 getFieldData model field =
     let
         val =
             Dict.get field.title model.values
     in
-        { field = field, value = val }
+    { field = field, value = val }
 
 
 renderInputs : Model -> Html Msg
@@ -226,22 +236,23 @@ renderInputs model =
             List.map (getFieldData model) model.fields
 
         showSection =
-            List.any (\s -> s == section) model.openSections
+            List.member section model.openSections
 
         inputs =
             if showSection then
-                (List.map renderInput fieldList)
+                List.map renderInput fieldList
+
             else
                 []
 
         children =
-            (List.append (renderHeader model section) inputs)
+            List.append (renderHeader model section) inputs
     in
-        selectedCriteriaContainer []
-            children
+    selectedCriteriaContainer []
+        children
 
 
-renderInput : { field : Field, value : Maybe String } -> Html Msg
+renderInput : FieldData -> Html Msg
 renderInput inputType =
     let
         val =
@@ -251,20 +262,24 @@ renderInput inputType =
 
                 Just v ->
                     v
+
         isText =
-            List.any (\f -> inputType.field.key == f) textFields
-        attrs = [ value val, onInput (SetValue inputType.field.title) ]
+            List.member inputType.field.key textFields
+
+        attrs =
+            [ value val, onInput (SetValue inputType.field.title) ]
+
         input =
             if isText then
                 styledInput attrs []
+
             else
                 styledSelect attrs (List.map renderOption inputType.field.options)
-
     in
-        inputContainer []
-            [ styledLabel [] [ text (String.append inputType.field.key ": ") ]
-            , input
-            ]
+    inputContainer []
+        [ styledLabel [] [ text (String.append inputType.field.key ": ") ]
+        , input
+        ]
 
 
 renderOption : FieldOption -> Html Msg
@@ -322,14 +337,6 @@ subContainer =
         ]
 
 
-optionsContainer : StyledEl div
-optionsContainer =
-    styled div
-        [ displayFlex
-        , justifyContent center
-        ]
-
-
 container : StyledEl div
 container =
     styled div
@@ -342,34 +349,36 @@ styledButton : List ( String, Bool ) -> StyledEl button
 styledButton props =
     let
         selected =
-            List.any (\t -> (Tuple.first t) == "selected") props
+            List.any (\t -> Tuple.first t == "selected") props
 
         bgColor =
             if selected then
                 "#000"
+
             else
                 "#fff"
 
         fontColor =
             if selected then
                 "#fff"
+
             else
                 "#000"
     in
-        styled button
-            [ backgroundColor (hex bgColor)
-            , color (hex fontColor)
-            , border3 (px 1) dashed (hex "#000")
-            , padding2 (rem 0.5) (rem 1)
-            , marginRight (rem 0.5)
-            , marginBottom (rem 0.5)
-            , cursor pointer
-            , fontFamily inherit
-            , fontSize (rem 0.7)
-            , hover
-                [ fontWeight bold
-                ]
+    styled button
+        [ backgroundColor (hex bgColor)
+        , color (hex fontColor)
+        , border3 (px 1) dashed (hex "#000")
+        , padding2 (rem 0.5) (rem 1)
+        , marginRight (rem 0.5)
+        , marginBottom (rem 0.5)
+        , cursor pointer
+        , fontFamily inherit
+        , fontSize (rem 0.7)
+        , hover
+            [ fontWeight bold
             ]
+        ]
 
 
 styledLabel : StyledEl label
@@ -403,13 +412,13 @@ type Msg
     | SelectField Field
     | ToggleCategory String
     | ToggleSection String
-    | GetCategories
     | SetCategories (WebData (List FieldCategory))
+    | SetPlants (WebData (List Plant))
 
 
-url : String
-url =
-    "http://localhost:9002/category"
+base : String
+base =
+    "http://localhost:9002"
 
 
 optionDecoder : Decoder FieldOption
@@ -434,13 +443,62 @@ categoryDecoder =
         |> Json.required "criteria" (list criteriaDecoder)
 
 
+plantDecoder : Decoder Plant
+plantDecoder =
+    Decode.succeed Plant
+        |> Json.required "id" Decode.int
+        |> Json.required "genus" string
+        |> Json.required "species" string
+        |> Json.required "common_name" string
+        |> Json.required "symbol" string
+
+
 getCategories : Cmd Msg
 getCategories =
     Http.get
-        { url = url
+        { url = base ++ "/category"
         , expect =
             list categoryDecoder
                 |> Http.expectJson (RemoteData.fromResult >> SetCategories)
+        }
+
+
+queryReducer : String -> String -> QS.Query -> QS.Query
+queryReducer key value query =
+    QS.setStr key value query
+
+
+createQueryString : Dict String String -> QS.Query
+createQueryString values =
+    let
+        query =
+            QS.empty
+
+        reduced =
+            Dict.foldl queryReducer query values
+    in
+    reduced
+
+
+getPlants : Model -> Cmd Msg
+getPlants model =
+    let
+        mapped =
+            createQueryString model.values
+
+        qs =
+            QS.serialize
+                QS.config
+                mapped
+
+        query =
+            Debug.log "query" qs
+    in
+    Http.get
+        { url = base ++ "/plant" ++ query
+        , expect =
+            list plantDecoder
+                |> Http.expectJson (RemoteData.fromResult >> SetPlants)
         }
 
 
@@ -452,7 +510,7 @@ update msg model =
                 updated =
                     Dict.insert key val model.values
             in
-                ( { model | values = updated }, Cmd.none )
+            ( { model | values = updated }, Cmd.none )
 
         SelectField val ->
             let
@@ -462,58 +520,62 @@ update msg model =
                 fields =
                     if hasField then
                         List.filter (\f -> f.title /= val.title) model.fields
+
                     else
                         model.fields ++ [ val ]
 
                 values =
                     if hasField then
                         Dict.remove val.title model.values
+
                     else
                         model.values
             in
-                ( { model | fields = fields, values = values }, Cmd.none )
+            ( { model | fields = fields, values = values }, Cmd.none )
 
         ToggleSection section ->
             let
                 hasSection =
-                    List.any (\c -> c == section) model.openSections
+                    List.member section model.openSections
 
                 openSections =
                     if hasSection then
                         List.filter (\c -> c /= section) model.openSections
+
                     else
                         model.openSections ++ [ section ]
             in
-                ( { model | openSections = openSections }, Cmd.none )
+            ( { model | openSections = openSections }, Cmd.none )
 
         ToggleCategory cat ->
             let
                 hasCat =
-                    List.any (\c -> c == cat) model.openCategories
+                    List.member cat model.openCategories
 
                 openCategories =
                     if hasCat then
                         List.filter (\c -> c /= cat) model.openCategories
+
                     else
                         model.openCategories ++ [ cat ]
             in
-                ( { model | openCategories = openCategories }, Cmd.none )
-
-        GetCategories ->
-            ( { model | fieldCategories = RemoteData.Loading }, getCategories )
+            ( { model | openCategories = openCategories }, Cmd.none )
 
         SetCategories response ->
             ( { model | fieldCategories = response }, Cmd.none )
+
+        SetPlants plants ->
+            let
+                plants_ =
+                    Debug.log "plants" plants
+            in
+            ( model, Cmd.none )
 
         Reset ->
             ( { model | values = Dict.empty, fields = [] }, Cmd.none )
 
         Submit ->
-            let
-                test =
-                    Debug.log "values" model.values
-            in
-                ( model, Cmd.none )
+            ( model, getPlants model )
 
 
 main : Program () Model Msg
