@@ -26,8 +26,8 @@ type alias Model =
     }
 
 
-initModel : () -> ( Model, Cmd Msg )
-initModel _ =
+initModel : ( Model, Cmd Msg )
+initModel =
     ( { values = Dict.empty
       , fields = []
       , openCategories = []
