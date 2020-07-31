@@ -1,6 +1,5 @@
 module Page.Search exposing (Model, Msg, initModel, update, view)
 
-import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Dict exposing (Dict)
@@ -14,6 +13,7 @@ import Plant exposing (Plant, plantDecoder)
 import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
+import SharedState exposing (SharedStateUpdate(..))
 
 
 type alias StyledEl msg =
@@ -386,12 +386,12 @@ type Msg
     | ToggleCategory String
     | ToggleSection String
     | SetCategories (WebData (List FieldCategory))
-    | SetPlants (WebData (List Plant))
+    | RoutePlants (WebData (List Plant))
 
 
 base : String
 base =
-    "http://localhost:9001"
+    "http://localhost:9002"
 
 
 getCategories : Cmd Msg
@@ -436,11 +436,11 @@ getPlants model =
         { url = base ++ "/plant" ++ qs
         , expect =
             list plantDecoder
-                |> Http.expectJson (RemoteData.fromResult >> SetPlants)
+                |> Http.expectJson (RemoteData.fromResult >> RoutePlants)
         }
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
 update msg model =
     case msg of
         SetValue key val ->
@@ -448,7 +448,7 @@ update msg model =
                 updated =
                     Dict.insert key val model.values
             in
-            ( { model | values = updated }, Cmd.none )
+            ( { model | values = updated }, Cmd.none, NoUpdate )
 
         SelectField val ->
             let
@@ -469,7 +469,7 @@ update msg model =
                     else
                         model.values
             in
-            ( { model | fields = fields, values = values }, Cmd.none )
+            ( { model | fields = fields, values = values }, Cmd.none, NoUpdate )
 
         ToggleSection section ->
             let
@@ -483,7 +483,7 @@ update msg model =
                     else
                         model.openSections ++ [ section ]
             in
-            ( { model | openSections = openSections }, Cmd.none )
+            ( { model | openSections = openSections }, Cmd.none, NoUpdate )
 
         ToggleCategory cat ->
             let
@@ -497,20 +497,16 @@ update msg model =
                     else
                         model.openCategories ++ [ cat ]
             in
-            ( { model | openCategories = openCategories }, Cmd.none )
+            ( { model | openCategories = openCategories }, Cmd.none, NoUpdate )
 
         SetCategories response ->
-            ( { model | fieldCategories = response }, Cmd.none )
+            ( { model | fieldCategories = response }, Cmd.none, NoUpdate )
 
-        SetPlants plants ->
-            let
-                plants_ =
-                    Debug.log "plants" plants
-            in
-            ( model, Route.pushUrl Route.Plants model.navKey )
+        RoutePlants plants ->
+            ( model, Route.pushUrl Route.Plants model.navKey, SetPlants plants )
 
         Reset ->
-            ( { model | values = Dict.empty, fields = [] }, Cmd.none )
+            ( { model | values = Dict.empty, fields = [] }, Cmd.none, NoUpdate )
 
         Submit ->
-            ( model, getPlants model )
+            ( model, getPlants model, NoUpdate )

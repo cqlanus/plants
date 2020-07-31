@@ -3,19 +3,18 @@ module Page.Plants exposing (Model, Msg, initModel, update, view)
 import Browser.Navigation as Nav
 import Html exposing (Html, div, text)
 import Plant exposing (Plant)
+import RemoteData exposing (WebData)
+import SharedState exposing (SharedState)
 
 
 type alias Model =
-    { plants : List Plant
-    , navKey : Nav.Key
+    { navKey : Nav.Key
     }
 
 
 initModel : Nav.Key -> ( Model, Cmd Msg )
 initModel navKey =
-    ( { plants = []
-      , navKey = navKey
-      }
+    ( { navKey = navKey }
     , Cmd.none
     )
 
@@ -31,7 +30,37 @@ update msg model =
             ( model, Cmd.none )
 
 
-view : Model -> Html Msg
-view _ =
+view : SharedState -> Model -> Html Msg
+view state _ =
     div []
-        [ text "plant list" ]
+        [ renderPlants state.plants ]
+
+
+renderPlants : WebData (List Plant) -> Html Msg
+renderPlants resp =
+    case resp of
+        RemoteData.NotAsked ->
+            div [] [ text "Loading..." ]
+
+        RemoteData.Loading ->
+            div [] [ text "loading..." ]
+
+        RemoteData.Success plants ->
+            div []
+                (List.map renderPlant plants)
+
+        RemoteData.Failure _ ->
+            div [] [ text "Loading..." ]
+
+
+renderPlant : Plant -> Html Msg
+renderPlant plant =
+    div []
+        [ text plant.common_name
+        , text " | "
+        , text plant.genus
+        , text " | "
+        , text plant.species
+        , text " | "
+        , text plant.symbol
+        ]

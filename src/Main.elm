@@ -6,7 +6,9 @@ import Html exposing (..)
 import Html.Styled exposing (toUnstyled)
 import Page.Plants as Plants
 import Page.Search as Search exposing (update)
+import RemoteData
 import Route exposing (Route)
+import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Url exposing (Url)
 
 
@@ -14,6 +16,7 @@ type alias Model =
     { route : Route
     , page : Page
     , navKey : Nav.Key
+    , state : SharedState
     }
 
 
@@ -23,6 +26,11 @@ type Page
     | PlantsPage Plants.Model
 
 
+initialAppState : SharedState
+initialAppState =
+    { plants = RemoteData.NotAsked }
+
+
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url navKey =
     let
@@ -30,6 +38,7 @@ init _ url navKey =
             { route = Route.parseUrl url
             , page = NotFoundPage
             , navKey = navKey
+            , state = initialAppState
             }
     in
     initCurrentPage ( model, Cmd.none )
@@ -87,13 +96,13 @@ currentView model =
                 |> Html.map SearchPageMsg
 
         PlantsPage pageModel ->
-            Plants.view pageModel
+            Plants.view model.state pageModel
                 |> Html.map PlantsPageMsg
 
 
 notFoundView : Html msg
 notFoundView =
-    h3 [] [ text "Something went wrong" ]
+    h3 [] [ text "Could not find page" ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,10 +110,13 @@ update msg model =
     case ( msg, model.page ) of
         ( SearchPageMsg subMsg, SearchPage pageModel ) ->
             let
-                ( updatedPageModel, updatedCmd ) =
+                ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
                     Search.update subMsg pageModel
+
+                nextSharedState =
+                    SharedState.update model.state newSharedStateUpdate
             in
-            ( { model | page = SearchPage updatedPageModel }
+            ( { model | page = SearchPage updatedPageModel, state = nextSharedState }
             , Cmd.map SearchPageMsg updatedCmd
             )
 
