@@ -6,8 +6,9 @@ import Html exposing (..)
 import Html.Styled exposing (toUnstyled)
 import Page.Plants as Plants
 import Page.Search as Search exposing (update)
-import RemoteData
-import Route exposing (Route)
+import Plant exposing (Plant)
+import RemoteData exposing (WebData)
+import Route exposing (Route, redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Url exposing (Url)
 
@@ -34,14 +35,20 @@ initialAppState =
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url navKey =
     let
+        current =
+            Route.parseUrl url
+
+        ( route, cmd ) =
+            getRoute initialAppState.plants current navKey url
+
         model =
-            { route = Route.parseUrl url
+            { route = route
             , page = NotFoundPage
             , navKey = navKey
             , state = initialAppState
             }
     in
-    initCurrentPage ( model, Cmd.none )
+    initCurrentPage ( model, cmd )
 
 
 initCurrentPage : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
@@ -134,14 +141,33 @@ update msg model =
 
         ( UrlChanged url, _ ) ->
             let
-                newRoute =
-                    Route.parseUrl url
+                ( newRoute, cmd ) =
+                    getRoute model.state.plants model.route model.navKey url
+
+                route =
+                    Debug.log "route" newRoute
             in
-            ( { model | route = newRoute }, Cmd.none )
+            ( { model | route = newRoute }, cmd )
                 |> initCurrentPage
 
         ( _, _ ) ->
             ( model, Cmd.none )
+
+
+getRoute : WebData (List Plant) -> Route -> Nav.Key -> Url -> ( Route, Cmd Msg )
+getRoute plants currentRoute navKey url =
+    case plants of
+        RemoteData.NotAsked ->
+            ( Route.Search, Route.redirect Route.Search currentRoute navKey )
+
+        RemoteData.Loading ->
+            ( Route.parseUrl url, Cmd.none )
+
+        RemoteData.Success _ ->
+            ( Route.parseUrl url, Cmd.none )
+
+        RemoteData.Failure _ ->
+            ( Route.parseUrl url, Cmd.none )
 
 
 main : Program () Model Msg

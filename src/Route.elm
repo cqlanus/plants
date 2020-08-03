@@ -1,4 +1,4 @@
-module Route exposing (Route(..), parseUrl, pushUrl)
+module Route exposing (Route(..), parseUrl, pushUrl, redirect)
 
 import Browser.Navigation as Nav
 import Url exposing (Url)
@@ -34,6 +34,16 @@ pushUrl : Route -> Nav.Key -> Cmd msg
 pushUrl route navKey =
     routeToString route
         |> Nav.pushUrl navKey
+
+
+redirect : Route -> Route -> Nav.Key -> Cmd msg
+redirect toRoute currentRoute navKey =
+    if currentRoute /= toRoute then
+        routeToString toRoute
+            |> Nav.replaceUrl navKey
+
+    else
+        Cmd.none
 
 
 routeToString : Route -> String
