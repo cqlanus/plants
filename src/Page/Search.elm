@@ -14,10 +14,74 @@ import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
 import SharedState exposing (SharedStateUpdate(..))
+import Styled exposing (StyledEl)
 
 
-type alias StyledEl msg =
-    List (Attribute msg) -> List (Html msg) -> Html msg
+doFirstCap : List String
+doFirstCap =
+    [ "genus", "species" ]
+
+
+upperAll : List String
+upperAll =
+    [ "symbol" ]
+
+
+lowerAll : List String
+lowerAll =
+    [ "common_name" ]
+
+
+firstCap : String -> String
+firstCap str =
+    let
+        length =
+            String.length str
+
+        firstLetter =
+            String.toUpper (String.slice 0 1 str)
+
+        rest =
+            String.toLower (String.slice 1 (length + 1) str)
+    in
+    firstLetter ++ rest
+
+
+allCap : String -> String
+allCap str =
+    String.toUpper str
+
+
+allLower : String -> String
+allLower str =
+    String.toLower str
+
+
+findFormatter : String -> (String -> String)
+findFormatter key =
+    if List.member key doFirstCap then
+        firstCap
+
+    else if List.member key upperAll then
+        allCap
+
+    else if List.member key lowerAll then
+        allLower
+
+    else
+        identity
+
+
+formatVal : String -> String -> String
+formatVal str key =
+    let
+        formatter =
+            findFormatter key
+
+        word =
+            formatter str
+    in
+    word
 
 
 type alias Model =
@@ -314,7 +378,6 @@ container : StyledEl div
 container =
     styled div
         [ padding (rem 1)
-        , fontFamily monospace
         ]
 
 
@@ -406,7 +469,7 @@ getCategories =
 
 queryReducer : String -> String -> QS.Query -> QS.Query
 queryReducer key value query =
-    QS.setStr key value query
+    QS.setStr key (formatVal value key) query
 
 
 createQueryString : Dict String String -> QS.Query

@@ -18,6 +18,10 @@ update : SharedState -> SharedStateUpdate -> SharedState
 update state action =
     case action of
         SetPlants plants ->
+            let
+                stuff =
+                    Debug.log "plants" plants
+            in
             { state | plants = plants }
 
         NoUpdate ->

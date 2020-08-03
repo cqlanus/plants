@@ -96,7 +96,7 @@ currentView model =
                 |> Html.map SearchPageMsg
 
         PlantsPage pageModel ->
-            Plants.view model.state pageModel
+            (Plants.view model.state >> toUnstyled) pageModel
                 |> Html.map PlantsPageMsg
 
 
