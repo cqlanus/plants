@@ -1,13 +1,15 @@
 module Route exposing (Route(..), parseUrl, pushUrl, redirect)
 
 import Browser.Navigation as Nav
+import Plant exposing (PlantId)
 import Url exposing (Url)
-import Url.Parser exposing (..)
+import Url.Parser exposing ((</>), Parser, map, oneOf, parse, s, top)
 
 
 type Route
     = NotFound
     | Plants
+    | Plant PlantId
     | Search
 
 
@@ -27,6 +29,7 @@ matchRoute =
         [ map Search top
         , map Search (s "search")
         , map Plants (s "plants")
+        , map Plant (s "plants" </> Plant.idParser)
         ]
 
 
@@ -54,6 +57,9 @@ routeToString route =
 
         Plants ->
             "/plants"
+
+        Plant plantId ->
+            "/plants/" ++ Plant.idToString plantId
 
         Search ->
             "/search"

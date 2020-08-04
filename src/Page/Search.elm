@@ -5,7 +5,7 @@ import Css exposing (..)
 import Dict exposing (Dict)
 import Field exposing (Field, FieldCategory, FieldData, FieldOption, categoryDecoder)
 import Html.Styled exposing (..)
-import Html.Styled.Attributes exposing (value)
+import Html.Styled.Attributes exposing (attribute, value)
 import Html.Styled.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (list)
@@ -222,7 +222,7 @@ renderHeader model headerName =
             else
                 "➕"
     in
-    [ styledH3 [ onClick (ToggleSection headerName) ] [ text (headerName ++ " " ++ emoji) ] ]
+    [ styledH3 [ onClick (ToggleSection headerName), attribute "role" "button" ] [ text (headerName ++ " " ++ emoji) ] ]
 
 
 renderCategory : Model -> String -> FieldCategory -> Html Msg
@@ -244,7 +244,7 @@ renderCategory model section category =
         cat =
             if showSection then
                 categoryContainer []
-                    [ styledH4 [ onClick (ToggleCategory category.name) ] [ text category.name ]
+                    [ styledH4 [ onClick (ToggleCategory category.name), attribute "role" "button" ] [ text category.name ]
                     , fieldsContainer [] criteria
                     ]
 
@@ -449,7 +449,7 @@ type Msg
     | ToggleCategory String
     | ToggleSection String
     | SetCategories (WebData (List FieldCategory))
-    | RoutePlants (WebData (List Plant))
+    | RoutePlants String (WebData (List Plant))
 
 
 base : String
@@ -499,7 +499,7 @@ getPlants model =
         { url = base ++ "/plant" ++ qs
         , expect =
             list plantDecoder
-                |> Http.expectJson (RemoteData.fromResult >> RoutePlants)
+                |> Http.expectJson (RemoteData.fromResult >> RoutePlants qs)
         }
 
 
@@ -565,8 +565,8 @@ update msg model =
         SetCategories response ->
             ( { model | fieldCategories = response }, Cmd.none, NoUpdate )
 
-        RoutePlants plants ->
-            ( model, Route.pushUrl Route.Plants model.navKey, SetPlants plants )
+        RoutePlants qs plants ->
+            ( model, Route.pushUrl Route.Plants model.navKey, SetPlants plants qs )
 
         Reset ->
             ( { model | values = Dict.empty, fields = [] }, Cmd.none, NoUpdate )

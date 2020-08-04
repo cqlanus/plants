@@ -3,9 +3,12 @@ module Page.Plants exposing (Model, Msg, initModel, update, view)
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Html.Styled exposing (Html, div, em, h3, span, strong, styled, text)
+import Html.Styled.Attributes exposing (attribute)
+import Html.Styled.Events exposing (onClick)
 import Plant exposing (Plant)
 import RemoteData exposing (WebData)
-import SharedState exposing (SharedState)
+import Route
+import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
 
 
@@ -42,21 +45,25 @@ type Msg
     = SelectPlant Plant
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
 update msg model =
     case msg of
         SelectPlant plant ->
-            ( model, Cmd.none )
+            ( model, Route.pushUrl (Route.Plant plant.id) model.navKey, SetPlant plant.id )
 
 
 view : SharedState -> Model -> Html Msg
 view state _ =
+    let
+        qs =
+            Debug.log "query" state.query
+    in
     container []
-        [ renderPlants state.plants ]
-
-
-header =
-    [ styledH3 [] [ text "plant list" ] ]
+        [ styledH3 [] [ text "plant list" ]
+        , renderLegend legendList
+        , renderPlants state.plants
+        , queryContainer [] [ text qs ]
+        ]
 
 
 renderPlants : WebData (List Plant) -> Html Msg
@@ -69,15 +76,8 @@ renderPlants resp =
             div [] [ text "loading..." ]
 
         RemoteData.Success plants ->
-            let
-                plantEls =
-                    List.map renderPlant plants
-
-                legend =
-                    renderLegend legendList
-            in
             div []
-                (header ++ legend ++ plantEls)
+                (List.map renderPlant plants)
 
         RemoteData.Failure _ ->
             div [] [ text "Loading..." ]
@@ -96,13 +96,13 @@ legendList =
     ]
 
 
-renderLegend : List LegendConfig -> List (Html Msg)
+renderLegend : List LegendConfig -> Html Msg
 renderLegend configList =
     let
         items =
             List.map (\c -> legendItem [] [ text (c.icon ++ ": " ++ c.text) ]) configList
     in
-    [ legendContainer [] items ]
+    legendContainer [] items
 
 
 hasStrVal : String -> Bool
@@ -153,7 +153,7 @@ renderPlant plant =
                 , span [] [ text plant.symbol ]
                 ]
     in
-    plantContainer []
+    plantContainer [ onClick (SelectPlant plant), attribute "role" "button" ]
         [ div []
             [ strong [] [ text latin ]
             , common
@@ -168,6 +168,7 @@ container =
     styled div
         [ padding (rem 1)
         , fontSize (rem 1)
+        , marginBottom (rem 3)
         ]
 
 
@@ -213,3 +214,16 @@ styledH3 : StyledEl h3
 styledH3 =
     styled h3
         []
+
+
+queryContainer : StyledEl div
+queryContainer =
+    styled div
+        [ position fixed
+        , bottom (px 0)
+        , right (px 0)
+        , left (px 0)
+        , backgroundColor (hex "#fff")
+        , border3 (px 1) dashed (hex "#000")
+        , padding (rem 1)
+        ]

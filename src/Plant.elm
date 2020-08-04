@@ -1,11 +1,17 @@
-module Plant exposing (Plant, PlantId, plantDecoder)
+module Plant exposing (Plant, PlantId, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt)
 
 import Json.Decode as Decode exposing (Decoder, float, int, string)
 import Json.Decode.Pipeline as Json exposing (required)
+import Url.Parser exposing (Parser, custom)
 
 
 type PlantId
     = PlantId Int
+
+
+intToPlantId : Int -> PlantId
+intToPlantId num =
+    PlantId num
 
 
 type alias Plant =
@@ -302,3 +308,22 @@ plantDecoder =
 plantIdDecoder : Decoder PlantId
 plantIdDecoder =
     Decode.map PlantId int
+
+
+plantIdToInt : PlantId -> Int
+plantIdToInt plantId =
+    case plantId of
+        PlantId id ->
+            id
+
+
+idParser : Parser (PlantId -> a) a
+idParser =
+    custom "PLANTID" <|
+        \plantId ->
+            Maybe.map PlantId (String.toInt plantId)
+
+
+idToString : PlantId -> String
+idToString plantId =
+    String.fromInt (plantIdToInt plantId)
