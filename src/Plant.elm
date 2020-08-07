@@ -1,4 +1,4 @@
-module Plant exposing (Plant, PlantId, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt)
+module Plant exposing (Plant, PlantId, empty, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt)
 
 import Json.Decode as Decode exposing (Decoder, float, int, string)
 import Json.Decode.Pipeline as Json exposing (required)
@@ -12,6 +12,30 @@ type PlantId
 intToPlantId : Int -> PlantId
 intToPlantId num =
     PlantId num
+
+
+plantIdDecoder : Decoder PlantId
+plantIdDecoder =
+    Decode.map PlantId int
+
+
+plantIdToInt : PlantId -> Int
+plantIdToInt plantId =
+    case plantId of
+        PlantId id ->
+            id
+
+
+idParser : Parser (PlantId -> a) a
+idParser =
+    custom "PLANTID" <|
+        \plantId ->
+            Maybe.map PlantId (String.toInt plantId)
+
+
+idToString : PlantId -> String
+idToString plantId =
+    String.fromInt (plantIdToInt plantId)
 
 
 type alias Plant =
@@ -305,25 +329,147 @@ plantDecoder =
         |> Json.required "accepted_symbol" string
 
 
-plantIdDecoder : Decoder PlantId
-plantIdDecoder =
-    Decode.map PlantId int
-
-
-plantIdToInt : PlantId -> Int
-plantIdToInt plantId =
-    case plantId of
-        PlantId id ->
-            id
-
-
-idParser : Parser (PlantId -> a) a
-idParser =
-    custom "PLANTID" <|
-        \plantId ->
-            Maybe.map PlantId (String.toInt plantId)
-
-
-idToString : PlantId -> String
-idToString plantId =
-    String.fromInt (plantIdToInt plantId)
+empty : Plant
+empty =
+    Plant
+        (PlantId 0)
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        0
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        0
+        ""
+        ""
+        ""
+        0
+        0
+        0
+        0
+        0
+        0
+        ""
+        ""
+        0
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        0
+        0
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""

@@ -155,7 +155,7 @@ renderPlant plant =
     in
     plantContainer [ onClick (SelectPlant plant), attribute "role" "button" ]
         [ div []
-            [ strong [] [ text latin ]
+            [ strong [] [ text plant.scientific_name ]
             , common
             , plantSymbol
             ]
