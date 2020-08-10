@@ -7,7 +7,7 @@ import Html.Styled exposing (toUnstyled)
 import Page.Plants as Plants
 import Page.Search as Search exposing (update)
 import Page.SelectedPlant as Selected
-import Plant exposing (Plant, PlantId, intToPlantId)
+import Plant exposing (Plant, intToPlantId)
 import RemoteData exposing (WebData)
 import Route exposing (Route, redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
@@ -31,7 +31,11 @@ type Page
 
 initialAppState : SharedState
 initialAppState =
-    { plants = RemoteData.NotAsked, query = "", plant = intToPlantId 0 }
+    { plants = RemoteData.NotAsked
+    , query = ""
+    , plant = intToPlantId 0
+    , plantGuide = RemoteData.NotAsked
+    }
 
 
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -155,16 +159,18 @@ update msg model =
             , Cmd.map PlantsPageMsg updatedCmd
             )
 
-        -- ( SelectedPageMsg subMsg, SelectedPage pageModel ) ->
-        --     let
-        --         ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
-        --             Plants.update subMsg pageModel
-        --         nextSharedState =
-        --             SharedState.update model.state newSharedStateUpdate
-        --     in
-        --     ( { model | page = SelectedPage updatedPageModel, state = nextSharedState }
-        --     , Cmd.map SelectedPageMsg updatedCmd
-        --     )
+        ( SelectedPageMsg subMsg, SelectedPage pageModel ) ->
+            let
+                ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
+                    Selected.update subMsg pageModel
+
+                nextSharedState =
+                    SharedState.update model.state newSharedStateUpdate
+            in
+            ( { model | page = SelectedPage updatedPageModel, state = nextSharedState }
+            , Cmd.map SelectedPageMsg updatedCmd
+            )
+
         ( LinkClicked urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->

@@ -1,20 +1,17 @@
 module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 
--- import Html.Styled.Events exposing (onClick)
--- import Route exposing (redirect)
-
 import Browser.Navigation as Nav
 import Css exposing (..)
-import Html.Styled exposing (Html, div, h2, h3, span, strong, styled, text)
-import Plant exposing (Plant, PlantId)
+import Html.Styled exposing (Html, button, div, h2, h3, p, span, strong, styled, text)
+import Html.Styled.Events exposing (onClick)
+import Http
+import Json.Decode exposing (list)
+import Plant exposing (Plant, PlantId, plantIdToInt)
+import PlantGuide exposing (GuideParagraph, guideDecoder)
 import RemoteData exposing (WebData)
 import Route exposing (redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
-
-
-
--- import Styled exposing (StyledEl)
 
 
 type alias Model =
@@ -28,13 +25,40 @@ initModel navKey =
 
 type Msg
     = GetPlantGuide Plant
+    | HandlePlantGuide (WebData (List GuideParagraph))
+
+
+base : String
+base =
+    "http://localhost:9002"
+
+
+fetchPlantGuide : Plant -> Cmd Msg
+fetchPlantGuide plant =
+    let
+        id =
+            Debug.log "hereee" (String.fromInt (plantIdToInt plant.id))
+    in
+    Http.get
+        { url = base ++ "/plant/" ++ id ++ "/guide"
+        , expect =
+            list guideDecoder
+                |> Http.expectJson (RemoteData.fromResult >> HandlePlantGuide)
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
 update msg model =
     case msg of
-        GetPlantGuide _ ->
-            ( model, Cmd.none, NoUpdate )
+        GetPlantGuide plant ->
+            let
+                here =
+                    Debug.log "here" plant
+            in
+            ( model, fetchPlantGuide plant, NoUpdate )
+
+        HandlePlantGuide guide ->
+            ( model, Cmd.none, SetPlantGuide guide )
 
 
 filterForPlant : PlantId -> WebData (List Plant) -> List Plant
@@ -54,7 +78,7 @@ filterForPlant plantId plants =
 
 
 view : SharedState -> Model -> Html Msg
-view { plants, plant } _ =
+view { plants, plant, plantGuide } _ =
     let
         filtered =
             filterForPlant plant plants
@@ -77,6 +101,10 @@ view { plants, plant } _ =
             , renderSection selected chemistry "Chemistry"
             , renderSection selected taxonomy "Taxonomy"
             , renderSection selected status "Status"
+            ]
+        , div []
+            [ renderButton selected
+            , renderGuide plantGuide
             ]
         ]
 
@@ -222,6 +250,66 @@ renderSection plant structure name =
         (title :: renderRow structureList)
 
 
+renderButton : Plant -> Html Msg
+renderButton plant =
+    let
+        shouldRender =
+            not (String.isEmpty plant.plant_guides)
+    in
+    if shouldRender then
+        styledButton [ onClick (GetPlantGuide plant) ] [ text "Plant Guide" ]
+
+    else
+        span [] []
+
+
+renderGuide : WebData (List GuideParagraph) -> Html Msg
+renderGuide data =
+    case data of
+        RemoteData.NotAsked ->
+            div [] []
+
+        RemoteData.Loading ->
+            div [] [ text "..." ]
+
+        RemoteData.Failure _ ->
+            div [] [ text "something went wrong" ]
+
+        RemoteData.Success guide ->
+            let
+                paras =
+                    List.map (\p -> renderGuideParagraph p) guide
+            in
+            div [] paras
+
+
+renderGuideParagraph : GuideParagraph -> Html Msg
+renderGuideParagraph para =
+    let
+        title =
+            if String.isEmpty para.title then
+                span [] []
+
+            else
+                h3 [] [ text para.title ]
+
+        contentText =
+            p [] [ text para.content.text ]
+
+        subtitle =
+            if String.isEmpty para.content.subtitle then
+                span [] []
+
+            else
+                strong [] [ text para.content.subtitle ]
+    in
+    div []
+        [ title
+        , subtitle
+        , contentText
+        ]
+
+
 container : StyledEl div
 container =
     styled div
@@ -243,3 +331,9 @@ sectionContainer =
         , flex (num 1)
         , flexBasis (rem 15)
         ]
+
+
+styledButton : StyledEl button
+styledButton =
+    styled button
+        []
