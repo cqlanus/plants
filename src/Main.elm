@@ -35,6 +35,7 @@ initialAppState =
     , query = ""
     , plant = intToPlantId 0
     , plantGuide = RemoteData.NotAsked
+    , fieldCategories = RemoteData.NotAsked
     }
 
 
@@ -68,7 +69,7 @@ initCurrentPage ( model, existingCmds ) =
                 Route.Search ->
                     let
                         ( pageModel, pageCmds ) =
-                            Search.initModel model.navKey
+                            Search.initModel model.navKey model.state
                     in
                     ( SearchPage pageModel, Cmd.map SearchPageMsg pageCmds )
 
@@ -113,7 +114,7 @@ currentView model =
             notFoundView
 
         SearchPage pageModel ->
-            (Search.view >> toUnstyled) pageModel
+            (Search.view model.state >> toUnstyled) pageModel
                 |> Html.map SearchPageMsg
 
         PlantsPage pageModel ->

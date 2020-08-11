@@ -13,7 +13,7 @@ import Plant exposing (Plant, plantDecoder)
 import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
-import SharedState exposing (SharedStateUpdate(..))
+import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
 
 
@@ -89,38 +89,71 @@ type alias Model =
     , fields : List Field
     , openCategories : List String
     , openSections : List String
-    , fieldCategories : WebData (List FieldCategory)
     , navKey : Nav.Key
     }
 
 
-createModel : Nav.Key -> Model
-createModel navKey =
-    { values = Dict.empty
-    , fields = []
+createModel : Nav.Key -> SharedState -> Model
+createModel navKey state =
+    let
+        values =
+            rebuildValues state.query
+
+        keys =
+            Dict.keys values
+
+        rebuildFields key final =
+            let
+                allCriteria =
+                    case state.fieldCategories of
+                        RemoteData.NotAsked ->
+                            []
+
+                        RemoteData.Failure _ ->
+                            []
+
+                        RemoteData.Loading ->
+                            []
+
+                        RemoteData.Success cats ->
+                            simpleFields ++ List.foldl (\c f -> f ++ c.criteria) [] cats
+
+                filtered =
+                    List.filter (\f -> f.title == key) allCriteria
+            in
+            final ++ filtered
+
+        fields =
+            List.foldl rebuildFields [] keys
+    in
+    { values = values
+    , fields = fields
     , openCategories = []
-    , fieldCategories = RemoteData.NotAsked
     , openSections = [ "selected criteria", "simple criteria" ]
     , navKey = navKey
     }
 
 
-initModel : Nav.Key -> ( Model, Cmd Msg )
-initModel navKey =
-    ( createModel navKey
+initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
+initModel navKey state =
+    let
+        existing =
+            Debug.log "state" state
+    in
+    ( createModel navKey state
     , getCategories
     )
 
 
-view : Model -> Html Msg
-view model =
+view : SharedState -> Model -> Html Msg
+view state model =
     container []
         [ h2 [] [ text "plants" ]
         , Html.Styled.em [] [ text "select search criteria" ]
         , subContainer []
             [ renderTextCategory model ]
         , subContainer []
-            [ renderFieldCategories model ]
+            [ renderFieldCategories state model ]
         , subContainer []
             [ renderInputs model ]
         , subContainer []
@@ -185,9 +218,9 @@ renderTextCategory model =
         (List.append header fields)
 
 
-renderFieldCategories : Model -> Html Msg
-renderFieldCategories model =
-    case model.fieldCategories of
+renderFieldCategories : SharedState -> Model -> Html Msg
+renderFieldCategories state model =
+    case state.fieldCategories of
         RemoteData.NotAsked ->
             div [] [ text "loading..." ]
 
@@ -448,8 +481,8 @@ type Msg
     | SelectField Field
     | ToggleCategory String
     | ToggleSection String
-    | SetCategories (WebData (List FieldCategory))
     | RoutePlants String (WebData (List Plant))
+    | HandleCategories (WebData (List FieldCategory))
 
 
 base : String
@@ -463,7 +496,7 @@ getCategories =
         { url = base ++ "/category"
         , expect =
             list categoryDecoder
-                |> Http.expectJson (RemoteData.fromResult >> SetCategories)
+                |> Http.expectJson (RemoteData.fromResult >> HandleCategories)
         }
 
 
@@ -482,6 +515,52 @@ createQueryString values =
             Dict.foldl queryReducer query values
     in
     reduced
+
+
+createQueryTup : String -> List ( String, String ) -> List ( String, String )
+createQueryTup qStr finalList =
+    let
+        qList =
+            String.split "=" qStr
+
+        qTup =
+            case qList of
+                [] ->
+                    Nothing
+
+                [ _ ] ->
+                    Nothing
+
+                [ key, value ] ->
+                    Just (Tuple.pair key value)
+
+                key :: value :: _ ->
+                    Just (Tuple.pair key value)
+
+        returnList =
+            case qTup of
+                Nothing ->
+                    finalList
+
+                Just tup ->
+                    finalList ++ [ tup ]
+    in
+    returnList
+
+
+rebuildValues : String -> Dict String String
+rebuildValues queryString =
+    let
+        qString =
+            String.dropLeft 1 queryString
+
+        qList =
+            String.split "&" qString
+
+        qListTup =
+            List.foldl createQueryTup [] qList
+    in
+    Dict.fromList qListTup
 
 
 getPlants : Model -> Cmd Msg
@@ -562,8 +641,8 @@ update msg model =
             in
             ( { model | openCategories = openCategories }, Cmd.none, NoUpdate )
 
-        SetCategories response ->
-            ( { model | fieldCategories = response }, Cmd.none, NoUpdate )
+        HandleCategories resp ->
+            ( model, Cmd.none, SetCategories resp )
 
         RoutePlants qs plants ->
             ( model, Route.pushUrl Route.Plants model.navKey, SetPlants plants qs )

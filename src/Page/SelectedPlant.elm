@@ -2,7 +2,7 @@ module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 
 import Browser.Navigation as Nav
 import Css exposing (..)
-import Html.Styled exposing (Html, button, div, h2, h3, p, span, strong, styled, text)
+import Html.Styled exposing (Html, div, h2, h3, p, span, strong, styled, text)
 import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
 import Http
@@ -10,7 +10,6 @@ import Json.Decode exposing (list)
 import Plant exposing (Plant, PlantId, plantIdToInt)
 import PlantGuide exposing (GuideParagraph, guideDecoder)
 import RemoteData exposing (WebData)
-import Route exposing (redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
 
@@ -38,7 +37,7 @@ fetchPlantGuide : Plant -> Cmd Msg
 fetchPlantGuide plant =
     let
         id =
-            Debug.log "hereee" (String.fromInt (plantIdToInt plant.id))
+            String.fromInt (plantIdToInt plant.id)
     in
     Http.get
         { url = base ++ "/plant/" ++ id ++ "/guide"
@@ -52,10 +51,6 @@ update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
 update msg model =
     case msg of
         GetPlantGuide plant ->
-            let
-                here =
-                    Debug.log "here" plant
-            in
             ( model, fetchPlantGuide plant, NoUpdate )
 
         HandlePlantGuide guide ->
@@ -116,7 +111,9 @@ header plant =
 
 
 type alias DisplayItem =
-    { display : String, value : String }
+    { display : String
+    , value : String
+    }
 
 
 type alias CategoryStructure =
@@ -341,9 +338,3 @@ styledH3 =
         , hover
             [ fontWeight bold ]
         ]
-
-
-styledButton : StyledEl button
-styledButton =
-    styled button
-        []
