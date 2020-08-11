@@ -3,6 +3,7 @@ module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Html.Styled exposing (Html, button, div, h2, h3, p, span, strong, styled, text)
+import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
 import Http
 import Json.Decode exposing (list)
@@ -257,7 +258,7 @@ renderButton plant =
             not (String.isEmpty plant.plant_guides)
     in
     if shouldRender then
-        styledButton [ onClick (GetPlantGuide plant) ] [ text "Plant Guide" ]
+        styledH3 [ onClick (GetPlantGuide plant), attribute "role" "button" ] [ text "Plant Guide" ]
 
     else
         span [] []
@@ -330,6 +331,15 @@ sectionContainer =
         [ textAlign left
         , flex (num 1)
         , flexBasis (rem 15)
+        ]
+
+
+styledH3 : StyledEl h3
+styledH3 =
+    styled h3
+        [ cursor pointer
+        , hover
+            [ fontWeight bold ]
         ]
 
 
