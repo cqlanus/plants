@@ -1,6 +1,6 @@
-module Plant exposing (Plant, PlantId, empty, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt)
+module Plant exposing (Plant, PlantId, PlantsResponse, empty, getPlantsDecoder, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt)
 
-import Json.Decode as Decode exposing (Decoder, float, int, string)
+import Json.Decode as Decode exposing (Decoder, float, int, list, string)
 import Json.Decode.Pipeline as Json exposing (required)
 import Url.Parser exposing (Parser, custom)
 
@@ -181,6 +181,19 @@ type alias Plant =
     , synonym_symbol : String
     , accepted_symbol : String
     }
+
+
+type alias PlantsResponse =
+    { rows : List Plant
+    , count : Int
+    }
+
+
+getPlantsDecoder : Decoder PlantsResponse
+getPlantsDecoder =
+    Decode.succeed PlantsResponse
+        |> Json.required "rows" (list plantDecoder)
+        |> Json.required "count" int
 
 
 plantDecoder : Decoder Plant

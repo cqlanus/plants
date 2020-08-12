@@ -1,5 +1,6 @@
 module Page.Search exposing (Model, Msg, initModel, update, view)
 
+import Api
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Dict exposing (Dict)
@@ -8,80 +9,13 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (attribute, value)
 import Html.Styled.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (list)
-import Plant exposing (Plant, plantDecoder)
+import Json.Decode as Decode exposing (list)
+import Plant exposing (Plant, PlantsResponse, getPlantsDecoder)
 import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
-
-
-doFirstCap : List String
-doFirstCap =
-    [ "genus", "species" ]
-
-
-upperAll : List String
-upperAll =
-    [ "symbol" ]
-
-
-lowerAll : List String
-lowerAll =
-    [ "common_name" ]
-
-
-firstCap : String -> String
-firstCap str =
-    let
-        length =
-            String.length str
-
-        firstLetter =
-            String.toUpper (String.slice 0 1 str)
-
-        rest =
-            String.toLower (String.slice 1 (length + 1) str)
-    in
-    firstLetter ++ rest
-
-
-allCap : String -> String
-allCap str =
-    String.toUpper str
-
-
-allLower : String -> String
-allLower str =
-    String.toLower str
-
-
-findFormatter : String -> (String -> String)
-findFormatter key =
-    if List.member key doFirstCap then
-        firstCap
-
-    else if List.member key upperAll then
-        allCap
-
-    else if List.member key lowerAll then
-        allLower
-
-    else
-        identity
-
-
-formatVal : String -> String -> String
-formatVal str key =
-    let
-        formatter =
-            findFormatter key
-
-        word =
-            formatter str
-    in
-    word
 
 
 type alias Model =
@@ -136,10 +70,6 @@ createModel navKey state =
 
 initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
 initModel navKey state =
-    let
-        existing =
-            Debug.log "state" state
-    in
     ( createModel navKey state
     , getCategories
     )
@@ -481,28 +411,28 @@ type Msg
     | SelectField Field
     | ToggleCategory String
     | ToggleSection String
-    | RoutePlants String (WebData (List Plant))
+    | RoutePlants String (WebData PlantsResponse)
     | HandleCategories (WebData (List FieldCategory))
 
 
-base : String
-base =
-    "http://localhost:9002"
+handleCategories : Api.ApiResult (List FieldCategory) Msg
+handleCategories =
+    RemoteData.fromResult >> HandleCategories
 
 
 getCategories : Cmd Msg
 getCategories =
     Http.get
-        { url = base ++ "/category"
+        { url = Api.path.category
         , expect =
             list categoryDecoder
-                |> Http.expectJson (RemoteData.fromResult >> HandleCategories)
+                |> Http.expectJson handleCategories
         }
 
 
 queryReducer : String -> String -> QS.Query -> QS.Query
 queryReducer key value query =
-    QS.setStr key (formatVal value key) query
+    QS.setStr key value query
 
 
 createQueryString : Dict String String -> QS.Query
@@ -563,6 +493,11 @@ rebuildValues queryString =
     Dict.fromList qListTup
 
 
+handlePlants : String -> Api.ApiResult PlantsResponse Msg
+handlePlants qs =
+    RemoteData.fromResult >> RoutePlants qs
+
+
 getPlants : Model -> Cmd Msg
 getPlants model =
     let
@@ -575,10 +510,10 @@ getPlants model =
                 mapped
     in
     Http.get
-        { url = base ++ "/plant" ++ qs
+        { url = Api.path.plant qs
         , expect =
-            list plantDecoder
-                |> Http.expectJson (RemoteData.fromResult >> RoutePlants qs)
+            getPlantsDecoder
+                |> Http.expectJson (handlePlants qs)
         }
 
 
@@ -644,8 +579,8 @@ update msg model =
         HandleCategories resp ->
             ( model, Cmd.none, SetCategories resp )
 
-        RoutePlants qs plants ->
-            ( model, Route.pushUrl Route.Plants model.navKey, SetPlants plants qs )
+        RoutePlants qs resp ->
+            ( model, Route.pushUrl Route.Plants model.navKey, SetPlants resp qs )
 
         Reset ->
             ( { model | values = Dict.empty, fields = [] }, Cmd.none, NoUpdate )

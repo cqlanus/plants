@@ -7,7 +7,7 @@ import Html.Styled exposing (toUnstyled)
 import Page.Plants as Plants
 import Page.Search as Search exposing (update)
 import Page.SelectedPlant as Selected
-import Plant exposing (Plant, intToPlantId)
+import Plant exposing (Plant, PlantsResponse, intToPlantId)
 import RemoteData exposing (WebData)
 import Route exposing (Route, redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
@@ -149,7 +149,7 @@ update msg model =
         ( PlantsPageMsg subMsg, PlantsPage pageModel ) ->
             let
                 ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
-                    Plants.update subMsg pageModel
+                    Plants.update subMsg pageModel model.state
 
                 nextSharedState =
                     SharedState.update
@@ -199,7 +199,7 @@ update msg model =
             ( model, Cmd.none )
 
 
-getRoute : WebData (List Plant) -> Route -> Nav.Key -> Url -> ( Route, Cmd Msg )
+getRoute : WebData PlantsResponse -> Route -> Nav.Key -> Url -> ( Route, Cmd Msg )
 getRoute plants currentRoute navKey url =
     case plants of
         RemoteData.NotAsked ->

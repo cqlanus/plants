@@ -1,13 +1,17 @@
 module Page.Plants exposing (Model, Msg, initModel, update, view)
 
+import Api
+import Basics as B
 import Browser.Navigation as Nav
 import Css exposing (..)
-import Html.Styled exposing (Html, div, em, h3, span, strong, styled, text)
+import Html.Styled exposing (Html, button, div, em, h3, span, strong, styled, text)
 import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
-import Plant exposing (Plant)
+import Http
+import Plant exposing (Plant, PlantsResponse, getPlantsDecoder)
+import QS exposing (serialize)
 import RemoteData exposing (WebData)
-import Route
+import Route exposing (redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
 
@@ -31,42 +35,115 @@ emoji =
 
 type alias Model =
     { navKey : Nav.Key
+    , page : Int
     }
 
 
 initModel : Nav.Key -> ( Model, Cmd Msg )
 initModel navKey =
-    ( { navKey = navKey }
+    ( { navKey = navKey
+      , page = 1
+      }
     , Cmd.none
     )
 
 
+handlePlants : String -> Api.ApiResult PlantsResponse Msg
+handlePlants qs =
+    RemoteData.fromResult >> HandleNextPage qs
+
+
+getPlants : Int -> SharedState -> Cmd Msg
+getPlants pageNum state =
+    Http.get
+        { url = Api.path.plantPage state.query pageNum
+        , expect =
+            getPlantsDecoder
+                |> Http.expectJson (handlePlants state.query)
+        }
+
+
 type Msg
     = SelectPlant Plant
+    | SetPage Int
+    | HandleNextPage String (WebData PlantsResponse)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
-update msg model =
+update : Msg -> Model -> SharedState -> ( Model, Cmd Msg, SharedStateUpdate )
+update msg model state =
     case msg of
         SelectPlant plant ->
             ( model, Route.pushUrl (Route.Plant plant.id) model.navKey, SetPlant plant.id )
 
+        SetPage pageNum ->
+            ( { model | page = pageNum }, getPlants pageNum state, NoUpdate )
+
+        HandleNextPage qs resp ->
+            ( model, Cmd.none, SetPlants resp qs )
+
 
 view : SharedState -> Model -> Html Msg
-view state _ =
+view state model =
     let
         qs =
-            Debug.log "query" state.query
+            state.query
     in
     container []
         [ styledH3 [] [ text "plant list" ]
         , renderLegend legendList
+        , renderPagingButtons model state.plants
         , renderPlants state.plants
         , queryContainer [] [ text qs ]
         ]
 
 
-renderPlants : WebData (List Plant) -> Html Msg
+renderPagingButtons : Model -> WebData PlantsResponse -> Html Msg
+renderPagingButtons model resp =
+    case resp of
+        RemoteData.NotAsked ->
+            div [] []
+
+        RemoteData.Failure _ ->
+            div [] []
+
+        RemoteData.Loading ->
+            div [] []
+
+        RemoteData.Success plants ->
+            let
+                count =
+                    plants.count
+
+                limit =
+                    20
+
+                totalPages =
+                    B.ceiling (B.toFloat count / limit)
+
+                decPage =
+                    if model.page == 1 then
+                        1
+
+                    else
+                        model.page - 1
+
+                incPage =
+                    if model.page == totalPages then
+                        totalPages
+
+                    else
+                        model.page + 1
+            in
+            pagingContainer []
+                [ pagingButton [ onClick (SetPage 1) ] [ text "<<" ]
+                , pagingButton [ onClick (SetPage decPage) ] [ text "<" ]
+                , pageText [] [ text (String.fromInt model.page) ]
+                , pagingButton [ onClick (SetPage incPage) ] [ text ">" ]
+                , pagingButton [ onClick (SetPage totalPages) ] [ text ">>" ]
+                ]
+
+
+renderPlants : WebData PlantsResponse -> Html Msg
 renderPlants resp =
     case resp of
         RemoteData.NotAsked ->
@@ -77,7 +154,7 @@ renderPlants resp =
 
         RemoteData.Success plants ->
             div []
-                (List.map renderPlant plants)
+                (List.map renderPlant plants.rows)
 
         RemoteData.Failure _ ->
             div [] [ text "Loading..." ]
@@ -226,4 +303,32 @@ queryContainer =
         , backgroundColor (hex "#fff")
         , border3 (px 1) dashed (hex "#000")
         , padding (rem 1)
+        ]
+
+
+pagingContainer : StyledEl div
+pagingContainer =
+    styled div
+        [ displayFlex
+        , alignItems center
+        ]
+
+
+pageText : StyledEl div
+pageText =
+    styled div
+        [ flex (num 1) ]
+
+
+pagingButton : StyledEl button
+pagingButton =
+    styled button
+        [ flex (num 1)
+        , padding (rem 1)
+        , backgroundColor (hex "#fff")
+        , border (px 0)
+        , fontSize (rem 1)
+        , cursor pointer
+        , hover
+            [ backgroundColor (hex "#eee") ]
         ]

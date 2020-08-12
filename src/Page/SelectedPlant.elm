@@ -1,5 +1,6 @@
 module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 
+import Api
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Html.Styled exposing (Html, div, h2, h3, p, span, strong, styled, text)
@@ -7,7 +8,7 @@ import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
 import Http
 import Json.Decode exposing (list)
-import Plant exposing (Plant, PlantId, plantIdToInt)
+import Plant exposing (Plant, PlantId, PlantsResponse, plantIdToInt)
 import PlantGuide exposing (GuideParagraph, guideDecoder)
 import RemoteData exposing (WebData)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
@@ -28,9 +29,9 @@ type Msg
     | HandlePlantGuide (WebData (List GuideParagraph))
 
 
-base : String
-base =
-    "http://localhost:9002"
+handlePlantGuide : Api.ApiResult (List GuideParagraph) Msg
+handlePlantGuide =
+    RemoteData.fromResult >> HandlePlantGuide
 
 
 fetchPlantGuide : Plant -> Cmd Msg
@@ -40,10 +41,10 @@ fetchPlantGuide plant =
             String.fromInt (plantIdToInt plant.id)
     in
     Http.get
-        { url = base ++ "/plant/" ++ id ++ "/guide"
+        { url = Api.path.guide id
         , expect =
             list guideDecoder
-                |> Http.expectJson (RemoteData.fromResult >> HandlePlantGuide)
+                |> Http.expectJson handlePlantGuide
         }
 
 
@@ -57,7 +58,7 @@ update msg model =
             ( model, Cmd.none, SetPlantGuide guide )
 
 
-filterForPlant : PlantId -> WebData (List Plant) -> List Plant
+filterForPlant : PlantId -> WebData PlantsResponse -> List Plant
 filterForPlant plantId plants =
     case plants of
         RemoteData.NotAsked ->
@@ -69,8 +70,8 @@ filterForPlant plantId plants =
         RemoteData.Loading ->
             []
 
-        RemoteData.Success pls ->
-            List.filter (\p -> p.id == plantId) pls
+        RemoteData.Success resp ->
+            List.filter (\p -> p.id == plantId) resp.rows
 
 
 view : SharedState -> Model -> Html Msg

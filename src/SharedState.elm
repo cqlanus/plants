@@ -1,13 +1,13 @@
 module SharedState exposing (SharedState, SharedStateUpdate(..), update)
 
 import Field exposing (FieldCategory)
-import Plant exposing (Plant)
+import Plant exposing (Plant, PlantsResponse)
 import PlantGuide exposing (GuideParagraph)
 import RemoteData exposing (WebData)
 
 
 type alias SharedState =
-    { plants : WebData (List Plant)
+    { plants : WebData PlantsResponse
     , plant : Plant.PlantId
     , plantGuide : WebData (List GuideParagraph)
     , fieldCategories : WebData (List FieldCategory)
@@ -16,7 +16,7 @@ type alias SharedState =
 
 
 type SharedStateUpdate
-    = SetPlants (WebData (List Plant)) String
+    = SetPlants (WebData PlantsResponse) String
     | SetPlant Plant.PlantId
     | SetPlantGuide (WebData (List GuideParagraph))
     | SetCategories (WebData (List FieldCategory))
