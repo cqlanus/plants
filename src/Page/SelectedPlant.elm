@@ -1,15 +1,15 @@
 module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 
-import Api
-import Api.Request
+import Api.Request as Request
+import Array exposing (fromList)
 import Browser.Navigation as Nav
 import Css exposing (..)
-import Html.Styled exposing (Html, div, h2, h3, p, span, strong, styled, text)
-import Html.Styled.Attributes exposing (attribute)
+import Html.Styled exposing (Html, div, em, h2, h3, img, p, span, strong, styled, text)
+import Html.Styled.Attributes exposing (attribute, css, src)
 import Html.Styled.Events exposing (onClick)
-import Http
 import Json.Decode exposing (list)
-import Plant exposing (Plant, PlantId, PlantsResponse, plantIdToInt)
+import Pagination exposing (pageText, pagingButton, pagingContainer)
+import Plant exposing (Plant, PlantId, PlantsResponse, plantIdToInt, plantImagesDecoder)
 import PlantGuide exposing (GuideParagraph, guideDecoder)
 import RemoteData exposing (WebData)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
@@ -17,17 +17,36 @@ import Styled exposing (StyledEl)
 
 
 type alias Model =
-    { navKey : Nav.Key }
+    { navKey : Nav.Key
+    , images : WebData (List String)
+    , imgIdx : Int
+    }
 
 
-initModel : Nav.Key -> ( Model, Cmd Msg )
-initModel navKey =
-    ( { navKey = navKey }, Cmd.none )
+initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
+initModel navKey state =
+    ( { navKey = navKey
+      , images = RemoteData.NotAsked
+      , imgIdx = 0
+      }
+    , getPlantImages state
+    )
 
 
 type Msg
     = GetPlantGuide Plant
     | HandlePlantGuide (WebData (List GuideParagraph))
+    | HandlePlantImages (WebData (List String))
+    | SelectImage Int
+
+
+getPlantImages : SharedState -> Cmd Msg
+getPlantImages state =
+    let
+        plantId =
+            String.fromInt (plantIdToInt state.plant)
+    in
+    Request.getPlantImages plantId plantImagesDecoder HandlePlantImages
 
 
 fetchPlantGuide : Plant -> Cmd Msg
@@ -36,7 +55,7 @@ fetchPlantGuide plant =
         id =
             String.fromInt (plantIdToInt plant.id)
     in
-    Api.Request.getPlantGuide id (list guideDecoder) HandlePlantGuide
+    Request.getPlantGuide id (list guideDecoder) HandlePlantGuide
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
@@ -47,6 +66,12 @@ update msg model =
 
         HandlePlantGuide guide ->
             ( model, Cmd.none, SetPlantGuide guide )
+
+        HandlePlantImages images ->
+            ( { model | images = images }, Cmd.none, NoUpdate )
+
+        SelectImage num ->
+            ( { model | imgIdx = num }, Cmd.none, NoUpdate )
 
 
 filterForPlant : PlantId -> WebData PlantsResponse -> List Plant
@@ -66,7 +91,7 @@ filterForPlant plantId plants =
 
 
 view : SharedState -> Model -> Html Msg
-view { plants, plant, plantGuide } _ =
+view { plants, plant, plantGuide } model =
     let
         filtered =
             filterForPlant plant plants
@@ -78,17 +103,23 @@ view { plants, plant, plantGuide } _ =
 
                 Nothing ->
                     Plant.empty
+
+        renderFor =
+            renderSection selected
     in
     container []
         [ header selected
         , innerContainer []
-            [ renderSection selected timing "Timing"
-            , renderSection selected growth "Growth"
-            , renderSection selected morphology "Morphology"
-            , renderSection selected reproduction "Reproduction"
-            , renderSection selected chemistry "Chemistry"
-            , renderSection selected taxonomy "Taxonomy"
-            , renderSection selected status "Status"
+            [ renderImage model ]
+        , styledH3 [] [ text "Characteristics" ]
+        , innerContainer []
+            [ renderFor timing "Timing"
+            , renderFor growth "Growth"
+            , renderFor morphology "Morphology"
+            , renderFor reproduction "Reproduction"
+            , renderFor chemistry "Chemistry"
+            , renderFor taxonomy "Taxonomy"
+            , renderFor status "Status"
             ]
         , div []
             [ renderButton selected
@@ -99,7 +130,10 @@ view { plants, plant, plantGuide } _ =
 
 header : Plant -> Html Msg
 header plant =
-    h2 [] [ text plant.scientific_name ]
+    div []
+        [ h2 [] [ text plant.scientific_name ]
+        , Html.Styled.em [] [ text plant.common_name ]
+        ]
 
 
 type alias DisplayItem =
@@ -227,6 +261,71 @@ renderRow items =
         items
 
 
+renderImage : Model -> Html Msg
+renderImage model =
+    let
+        empty =
+            div [] []
+
+        currentIdx =
+            model.imgIdx
+
+        image =
+            case model.images of
+                RemoteData.NotAsked ->
+                    empty
+
+                RemoteData.Failure _ ->
+                    empty
+
+                RemoteData.Loading ->
+                    empty
+
+                RemoteData.Success images ->
+                    let
+                        current =
+                            Array.get currentIdx (fromList images)
+
+                        length =
+                            List.length images
+
+                        last =
+                            length - 1
+
+                        imgText =
+                            String.fromInt (currentIdx + 1) ++ " / " ++ String.fromInt length
+
+                        dec =
+                            if currentIdx == 0 then
+                                0
+
+                            else
+                                currentIdx - 1
+
+                        inc =
+                            if currentIdx == last then
+                                last
+
+                            else
+                                currentIdx + 1
+                    in
+                    case current of
+                        Just i ->
+                            div [ css [ width (pct 100) ] ]
+                                [ imageContainer [] [ img [ src i ] [] ]
+                                , pagingContainer []
+                                    [ pagingButton [ onClick (SelectImage dec) ] [ text "<" ]
+                                    , pageText [] [ text imgText ]
+                                    , pagingButton [ onClick (SelectImage inc) ] [ text ">" ]
+                                    ]
+                                ]
+
+                        Nothing ->
+                            div [] []
+    in
+    image
+
+
 renderSection : Plant -> CategoryStructure -> String -> Html Msg
 renderSection plant structure name =
     let
@@ -321,6 +420,12 @@ sectionContainer =
         , flex (num 1)
         , flexBasis (rem 15)
         ]
+
+
+imageContainer : StyledEl div
+imageContainer =
+    styled div
+        [ flex (num 1) ]
 
 
 styledH3 : StyledEl h3

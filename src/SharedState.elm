@@ -1,7 +1,7 @@
 module SharedState exposing (SharedState, SharedStateUpdate(..), update)
 
 import Field exposing (FieldCategory)
-import Plant exposing (Plant, PlantsResponse)
+import Plant exposing (PlantsResponse)
 import PlantGuide exposing (GuideParagraph)
 import RemoteData exposing (WebData)
 import Url.Builder exposing (QueryParameter)

@@ -7,7 +7,8 @@ import Css exposing (..)
 import Html.Styled exposing (Html, button, div, em, h3, span, strong, styled, text)
 import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
-import Plant exposing (Plant, PlantsResponse, getPlantsDecoder)
+import Pagination exposing (pageText, pagingButton, pagingContainer)
+import Plant exposing (Plant, PlantsResponse, getPlantsDecoder, plantIdToInt, plantImagesDecoder)
 import RemoteData exposing (WebData)
 import Route
 import SharedState exposing (SharedState, SharedStateUpdate(..))
@@ -291,32 +292,4 @@ queryContainer =
         , backgroundColor (hex "#fff")
         , border3 (px 1) dashed (hex "#000")
         , padding (rem 1)
-        ]
-
-
-pagingContainer : StyledEl div
-pagingContainer =
-    styled div
-        [ displayFlex
-        , alignItems center
-        ]
-
-
-pageText : StyledEl div
-pageText =
-    styled div
-        [ flex (num 1) ]
-
-
-pagingButton : StyledEl button
-pagingButton =
-    styled button
-        [ flex (num 1)
-        , padding (rem 1)
-        , backgroundColor (hex "#fff")
-        , border (px 0)
-        , fontSize (rem 1)
-        , cursor pointer
-        , hover
-            [ backgroundColor (hex "#eee") ]
         ]

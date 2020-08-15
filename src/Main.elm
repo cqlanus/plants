@@ -83,7 +83,7 @@ initCurrentPage ( model, existingCmds ) =
                 Route.Plant _ ->
                     let
                         ( pageModel, pageCmds ) =
-                            Selected.initModel model.navKey
+                            Selected.initModel model.navKey model.state
                     in
                     ( SelectedPage pageModel, Cmd.map SelectedPageMsg pageCmds )
     in
