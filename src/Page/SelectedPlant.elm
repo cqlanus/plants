@@ -1,6 +1,7 @@
 module Page.SelectedPlant exposing (Model, Msg, initModel, update, view)
 
 import Api
+import Api.Request
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Html.Styled exposing (Html, div, h2, h3, p, span, strong, styled, text)
@@ -29,23 +30,13 @@ type Msg
     | HandlePlantGuide (WebData (List GuideParagraph))
 
 
-handlePlantGuide : Api.ApiResult (List GuideParagraph) Msg
-handlePlantGuide =
-    RemoteData.fromResult >> HandlePlantGuide
-
-
 fetchPlantGuide : Plant -> Cmd Msg
 fetchPlantGuide plant =
     let
         id =
             String.fromInt (plantIdToInt plant.id)
     in
-    Http.get
-        { url = Api.path.guide id
-        , expect =
-            list guideDecoder
-                |> Http.expectJson handlePlantGuide
-        }
+    Api.Request.getPlantGuide id (list guideDecoder) HandlePlantGuide
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )

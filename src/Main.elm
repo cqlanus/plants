@@ -32,7 +32,7 @@ type Page
 initialAppState : SharedState
 initialAppState =
     { plants = RemoteData.NotAsked
-    , query = ""
+    , query = []
     , plant = intToPlantId 0
     , plantGuide = RemoteData.NotAsked
     , fieldCategories = RemoteData.NotAsked

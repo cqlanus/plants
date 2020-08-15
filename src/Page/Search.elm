@@ -1,6 +1,7 @@
 module Page.Search exposing (Model, Msg, initModel, update, view)
 
 import Api
+import Api.Request as Request
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Dict exposing (Dict)
@@ -9,13 +10,14 @@ import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (attribute, value)
 import Html.Styled.Events exposing (onClick, onInput)
 import Http
-import Json.Decode as Decode exposing (list)
-import Plant exposing (Plant, PlantsResponse, getPlantsDecoder)
+import Json.Decode exposing (list)
+import Plant exposing (PlantsResponse, getPlantsDecoder)
 import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
+import Url.Builder exposing (QueryParameter, toQuery)
 
 
 type alias Model =
@@ -71,7 +73,7 @@ createModel navKey state =
 initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
 initModel navKey state =
     ( createModel navKey state
-    , getCategories
+    , Request.getCategories (list categoryDecoder) HandleCategories
     )
 
 
@@ -411,38 +413,20 @@ type Msg
     | SelectField Field
     | ToggleCategory String
     | ToggleSection String
-    | RoutePlants String (WebData PlantsResponse)
+    | RoutePlants (List QueryParameter) (WebData PlantsResponse)
     | HandleCategories (WebData (List FieldCategory))
 
 
-handleCategories : Api.ApiResult (List FieldCategory) Msg
-handleCategories =
-    RemoteData.fromResult >> HandleCategories
-
-
-getCategories : Cmd Msg
-getCategories =
-    Http.get
-        { url = Api.path.category
-        , expect =
-            list categoryDecoder
-                |> Http.expectJson handleCategories
-        }
-
-
-queryReducer : String -> String -> QS.Query -> QS.Query
+queryReducer : String -> String -> List QueryParameter -> List QueryParameter
 queryReducer key value query =
-    QS.setStr key value query
+    List.append query [ Url.Builder.string key value ]
 
 
-createQueryString : Dict String String -> QS.Query
+createQueryString : Dict String String -> List QueryParameter
 createQueryString values =
     let
-        query =
-            QS.empty
-
         reduced =
-            Dict.foldl queryReducer query values
+            Dict.foldl queryReducer [] values
     in
     reduced
 
@@ -478,9 +462,12 @@ createQueryTup qStr finalList =
     returnList
 
 
-rebuildValues : String -> Dict String String
-rebuildValues queryString =
+rebuildValues : List QueryParameter -> Dict String String
+rebuildValues query =
     let
+        queryString =
+            toQuery query
+
         qString =
             String.dropLeft 1 queryString
 
@@ -493,28 +480,13 @@ rebuildValues queryString =
     Dict.fromList qListTup
 
 
-handlePlants : String -> Api.ApiResult PlantsResponse Msg
-handlePlants qs =
-    RemoteData.fromResult >> RoutePlants qs
-
-
 getPlants : Model -> Cmd Msg
 getPlants model =
     let
-        mapped =
-            createQueryString model.values
-
         qs =
-            QS.serialize
-                QS.config
-                mapped
+            createQueryString model.values
     in
-    Http.get
-        { url = Api.path.plant qs
-        , expect =
-            getPlantsDecoder
-                |> Http.expectJson (handlePlants qs)
-        }
+    Request.getPlants qs getPlantsDecoder (RoutePlants qs)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )

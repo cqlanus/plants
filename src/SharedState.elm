@@ -4,6 +4,7 @@ import Field exposing (FieldCategory)
 import Plant exposing (Plant, PlantsResponse)
 import PlantGuide exposing (GuideParagraph)
 import RemoteData exposing (WebData)
+import Url.Builder exposing (QueryParameter)
 
 
 type alias SharedState =
@@ -11,12 +12,12 @@ type alias SharedState =
     , plant : Plant.PlantId
     , plantGuide : WebData (List GuideParagraph)
     , fieldCategories : WebData (List FieldCategory)
-    , query : String
+    , query : List QueryParameter
     }
 
 
 type SharedStateUpdate
-    = SetPlants (WebData PlantsResponse) String
+    = SetPlants (WebData PlantsResponse) (List QueryParameter)
     | SetPlant Plant.PlantId
     | SetPlantGuide (WebData (List GuideParagraph))
     | SetCategories (WebData (List FieldCategory))

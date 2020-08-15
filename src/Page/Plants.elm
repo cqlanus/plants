@@ -1,19 +1,18 @@
 module Page.Plants exposing (Model, Msg, initModel, update, view)
 
-import Api
+import Api.Request as Request
 import Basics as B
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Html.Styled exposing (Html, button, div, em, h3, span, strong, styled, text)
 import Html.Styled.Attributes exposing (attribute)
 import Html.Styled.Events exposing (onClick)
-import Http
 import Plant exposing (Plant, PlantsResponse, getPlantsDecoder)
-import QS exposing (serialize)
 import RemoteData exposing (WebData)
-import Route exposing (redirect)
+import Route
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
+import Url.Builder exposing (QueryParameter, toQuery)
 
 
 type alias Emoji =
@@ -48,25 +47,15 @@ initModel navKey =
     )
 
 
-handlePlants : String -> Api.ApiResult PlantsResponse Msg
-handlePlants qs =
-    RemoteData.fromResult >> HandleNextPage qs
-
-
 getPlants : Int -> SharedState -> Cmd Msg
 getPlants pageNum state =
-    Http.get
-        { url = Api.path.plantPage state.query pageNum
-        , expect =
-            getPlantsDecoder
-                |> Http.expectJson (handlePlants state.query)
-        }
+    Request.getPlantsPage pageNum state.query getPlantsDecoder (HandleNextPage state.query)
 
 
 type Msg
     = SelectPlant Plant
     | SetPage Int
-    | HandleNextPage String (WebData PlantsResponse)
+    | HandleNextPage (List QueryParameter) (WebData PlantsResponse)
 
 
 update : Msg -> Model -> SharedState -> ( Model, Cmd Msg, SharedStateUpdate )
@@ -93,7 +82,7 @@ view state model =
         , renderLegend legendList
         , renderPagingButtons model state.plants
         , renderPlants state.plants
-        , queryContainer [] [ text qs ]
+        , queryContainer [] [ text (toQuery qs) ]
         ]
 
 
@@ -161,7 +150,9 @@ renderPlants resp =
 
 
 type alias LegendConfig =
-    { text : String, icon : String }
+    { text : String
+    , icon : String
+    }
 
 
 legendList : List LegendConfig
@@ -211,9 +202,6 @@ renderIcons plant =
 renderPlant : Plant -> Html Msg
 renderPlant plant =
     let
-        latin =
-            plant.genus ++ " " ++ plant.species
-
         common =
             if String.isEmpty plant.common_name then
                 span [] []
