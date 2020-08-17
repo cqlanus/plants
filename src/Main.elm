@@ -2,14 +2,14 @@ module Main exposing (main)
 
 import Browser exposing (Document, UrlRequest)
 import Browser.Navigation as Nav
-import Html exposing (..)
+import Html exposing (Html, h3, text)
 import Html.Styled exposing (toUnstyled)
 import Page.Plants as Plants
 import Page.Search as Search exposing (update)
 import Page.SelectedPlant as Selected
-import Plant exposing (Plant, PlantsResponse, intToPlantId)
+import Plant exposing (PlantId(..), PlantsResponse, intToPlantId, plantIdToInt)
 import RemoteData exposing (WebData)
-import Route exposing (Route, redirect)
+import Route exposing (Route(..), redirect)
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Url exposing (Url)
 
@@ -80,10 +80,10 @@ initCurrentPage ( model, existingCmds ) =
                     in
                     ( PlantsPage pageModel, Cmd.map PlantsPageMsg pageCmds )
 
-                Route.Plant _ ->
+                Route.Plant id ->
                     let
                         ( pageModel, pageCmds ) =
-                            Selected.initModel model.navKey model.state
+                            Selected.initModel model.navKey model.state id
                     in
                     ( SelectedPage pageModel, Cmd.map SelectedPageMsg pageCmds )
     in
@@ -162,8 +162,22 @@ update msg model =
 
         ( SelectedPageMsg subMsg, SelectedPage pageModel ) ->
             let
+                id =
+                    case model.route of
+                        NotFound ->
+                            PlantId 0
+
+                        Plants ->
+                            PlantId 0
+
+                        Search ->
+                            PlantId 0
+
+                        Plant pId ->
+                            pId
+
                 ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
-                    Selected.update subMsg pageModel
+                    Selected.update subMsg pageModel model.state id
 
                 nextSharedState =
                     SharedState.update model.state newSharedStateUpdate
@@ -188,9 +202,6 @@ update msg model =
             let
                 ( newRoute, cmd ) =
                     getRoute model.state.plants model.route model.navKey url
-
-                route =
-                    Debug.log "route" newRoute
             in
             ( { model | route = newRoute }, cmd )
                 |> initCurrentPage
@@ -203,7 +214,22 @@ getRoute : WebData PlantsResponse -> Route -> Nav.Key -> Url -> ( Route, Cmd Msg
 getRoute plants currentRoute navKey url =
     case plants of
         RemoteData.NotAsked ->
-            ( Route.Search, Route.redirect Route.Search currentRoute navKey )
+            let
+                dest =
+                    case currentRoute of
+                        Route.Search ->
+                            Route.Search
+
+                        Route.Plants ->
+                            Route.Search
+
+                        Route.NotFound ->
+                            Route.Search
+
+                        Route.Plant id ->
+                            Route.Plant id
+            in
+            ( dest, Route.redirect Route.Search currentRoute navKey )
 
         RemoteData.Loading ->
             ( Route.parseUrl url, Cmd.none )

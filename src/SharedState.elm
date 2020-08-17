@@ -1,7 +1,7 @@
 module SharedState exposing (SharedState, SharedStateUpdate(..), update)
 
 import Field exposing (FieldCategory)
-import Plant exposing (PlantsResponse)
+import Plant exposing (PlantId, PlantsResponse)
 import PlantGuide exposing (GuideParagraph)
 import RemoteData exposing (WebData)
 import Url.Builder exposing (QueryParameter)
@@ -19,6 +19,7 @@ type alias SharedState =
 type SharedStateUpdate
     = SetPlants (WebData PlantsResponse) (List QueryParameter)
     | SetPlant Plant.PlantId
+    | LoadPlant (WebData PlantsResponse) (List QueryParameter) PlantId
     | SetPlantGuide (WebData (List GuideParagraph))
     | SetCategories (WebData (List FieldCategory))
     | NoUpdate
@@ -29,6 +30,9 @@ update state action =
     case action of
         SetPlants plants qs ->
             { state | plants = plants, query = qs }
+
+        LoadPlant plants qs id ->
+            { state | plants = plants, query = qs, plant = id }
 
         SetPlant plant ->
             { state | plant = plant, plantGuide = RemoteData.NotAsked }

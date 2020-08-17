@@ -41,7 +41,28 @@ pushUrl route navKey =
 
 redirect : Route -> Route -> Nav.Key -> Cmd msg
 redirect toRoute currentRoute navKey =
-    if currentRoute /= toRoute then
+    let
+        diffRoute =
+            currentRoute /= toRoute
+
+        notPlant =
+            case currentRoute of
+                NotFound ->
+                    True
+
+                Plants ->
+                    True
+
+                Plant _ ->
+                    False
+
+                Search ->
+                    True
+
+        shouldRedirect =
+            diffRoute && notPlant
+    in
+    if shouldRedirect then
         routeToString toRoute
             |> Nav.replaceUrl navKey
 

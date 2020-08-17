@@ -1,4 +1,4 @@
-module Plant exposing (Plant, PlantId, PlantsResponse, empty, getPlantsDecoder, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt, plantImagesDecoder)
+module Plant exposing (Plant, PlantId(..), PlantsResponse, empty, getPlantsDecoder, idParser, idToString, intToPlantId, plantDecoder, plantIdToInt, plantImagesDecoder)
 
 import Json.Decode as Decode exposing (Decoder, float, int, list, string)
 import Json.Decode.Pipeline as Json exposing (required)

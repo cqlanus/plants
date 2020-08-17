@@ -9,11 +9,16 @@ import Html.Styled.Attributes exposing (attribute, css, src)
 import Html.Styled.Events exposing (onClick)
 import Json.Decode exposing (list)
 import Pagination exposing (pageText, pagingButton, pagingContainer)
-import Plant exposing (Plant, PlantId, PlantsResponse, plantIdToInt, plantImagesDecoder)
+import Plant exposing (Plant, PlantId, PlantsResponse, getPlantsDecoder, plantIdToInt, plantImagesDecoder)
 import PlantGuide exposing (GuideParagraph, guideDecoder)
 import RemoteData exposing (WebData)
+import Route exposing (Route(..))
 import SharedState exposing (SharedState, SharedStateUpdate(..))
 import Styled exposing (StyledEl)
+
+
+
+-- MODEL --
 
 
 type alias Model =
@@ -23,29 +28,61 @@ type alias Model =
     }
 
 
-initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
-initModel navKey state =
+initModel : Nav.Key -> SharedState -> PlantId -> ( Model, Cmd Msg )
+initModel navKey state plantId =
     ( { navKey = navKey
       , images = RemoteData.NotAsked
       , imgIdx = 0
       }
-    , getPlantImages state
+    , handleLoad state plantId
     )
+
+
+
+-- MSG --
 
 
 type Msg
     = GetPlantGuide Plant
     | HandlePlantGuide (WebData (List GuideParagraph))
     | HandlePlantImages (WebData (List String))
+    | HandleGetPlant (WebData PlantsResponse)
     | SelectImage Int
 
 
-getPlantImages : SharedState -> Cmd Msg
-getPlantImages state =
+
+-- CMD --
+
+
+handleLoad : SharedState -> PlantId -> Cmd Msg
+handleLoad state plantId =
     let
-        plantId =
-            String.fromInt (plantIdToInt state.plant)
+        shouldGetPlant =
+            case state.plants of
+                RemoteData.NotAsked ->
+                    True
+
+                RemoteData.Success _ ->
+                    False
+
+                RemoteData.Loading ->
+                    False
+
+                RemoteData.Failure _ ->
+                    False
+
+        id =
+            String.fromInt (plantIdToInt plantId)
     in
+    if shouldGetPlant then
+        Request.getPlant id getPlantsDecoder HandleGetPlant
+
+    else
+        getPlantImages id
+
+
+getPlantImages : String -> Cmd Msg
+getPlantImages plantId =
     Request.getPlantImages plantId plantImagesDecoder HandlePlantImages
 
 
@@ -58,8 +95,12 @@ fetchPlantGuide plant =
     Request.getPlantGuide id (list guideDecoder) HandlePlantGuide
 
 
-update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
-update msg model =
+
+-- UPDATE --
+
+
+update : Msg -> Model -> SharedState -> PlantId -> ( Model, Cmd Msg, SharedStateUpdate )
+update msg model state plantId =
     case msg of
         GetPlantGuide plant ->
             ( model, fetchPlantGuide plant, NoUpdate )
@@ -72,6 +113,13 @@ update msg model =
 
         SelectImage num ->
             ( { model | imgIdx = num }, Cmd.none, NoUpdate )
+
+        HandleGetPlant plants ->
+            let
+                id =
+                    String.fromInt (plantIdToInt plantId)
+            in
+            ( model, getPlantImages id, LoadPlant plants state.query plantId )
 
 
 filterForPlant : PlantId -> WebData PlantsResponse -> List Plant
@@ -88,6 +136,10 @@ filterForPlant plantId plants =
 
         RemoteData.Success resp ->
             List.filter (\p -> p.id == plantId) resp.rows
+
+
+
+-- VIEW --
 
 
 view : SharedState -> Model -> Html Msg
@@ -397,6 +449,10 @@ renderGuideParagraph para =
         , subtitle
         , contentText
         ]
+
+
+
+-- STYLED EL --
 
 
 container : StyledEl div

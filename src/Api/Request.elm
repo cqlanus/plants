@@ -1,4 +1,4 @@
-module Api.Request exposing (getCategories, getPlantGuide, getPlantImages, getPlants, getPlantsPage)
+module Api.Request exposing (getCategories, getPlant, getPlantGuide, getPlantImages, getPlants, getPlantsPage)
 
 import Api.Endpoint as Endpoint exposing (Endpoint, unwrap)
 import Http
@@ -23,6 +23,11 @@ getCategories decoder msg =
 getPlantGuide : String -> Decoder a -> (WebData a -> b) -> Cmd b
 getPlantGuide id decoder msg =
     get (Endpoint.guide id) decoder msg
+
+
+getPlant : String -> Decoder a -> (WebData a -> b) -> Cmd b
+getPlant id decoder msg =
+    get (Endpoint.plantId id) decoder msg
 
 
 getPlantImages : String -> Decoder a -> (WebData a -> b) -> Cmd b

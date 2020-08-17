@@ -1,18 +1,15 @@
 module Page.Search exposing (Model, Msg, initModel, update, view)
 
-import Api
 import Api.Request as Request
 import Browser.Navigation as Nav
 import Css exposing (..)
 import Dict exposing (Dict)
 import Field exposing (Field, FieldCategory, FieldData, FieldOption, categoryDecoder)
-import Html.Styled exposing (..)
+import Html.Styled exposing (Html, button, div, h2, h3, h4, input, label, option, select, styled, text)
 import Html.Styled.Attributes exposing (attribute, value)
 import Html.Styled.Events exposing (onClick, onInput)
-import Http
 import Json.Decode exposing (list)
 import Plant exposing (PlantsResponse, getPlantsDecoder)
-import QS exposing (serialize)
 import RemoteData exposing (WebData)
 import Route exposing (pushUrl)
 import SharedState exposing (SharedState, SharedStateUpdate(..))

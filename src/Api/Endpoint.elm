@@ -1,4 +1,4 @@
-module Api.Endpoint exposing (Endpoint, category, guide, images, plant, unwrap, url)
+module Api.Endpoint exposing (Endpoint, category, guide, images, plant, plantId, unwrap, url)
 
 import Url.Builder exposing (QueryParameter)
 
@@ -33,6 +33,11 @@ category =
 plant : List QueryParameter -> Endpoint
 plant query =
     url [ "plant" ] query
+
+
+plantId : String -> Endpoint
+plantId id =
+    url [ "plant" ] [ Url.Builder.string "id" id ]
 
 
 guide : String -> Endpoint
