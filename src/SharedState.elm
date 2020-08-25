@@ -1,4 +1,4 @@
-module SharedState exposing (SharedState, SharedStateUpdate(..), update)
+module SharedState exposing (SharedState, SharedStateUpdate(..), getInitial, update)
 
 import Field exposing (FieldCategory)
 import Plant exposing (PlantId, PlantsResponse)
@@ -7,12 +7,18 @@ import RemoteData exposing (WebData)
 import Url.Builder exposing (QueryParameter)
 
 
+type alias Flags =
+    { env : String
+    }
+
+
 type alias SharedState =
     { plants : WebData PlantsResponse
     , plant : Plant.PlantId
     , plantGuide : WebData (List GuideParagraph)
     , fieldCategories : WebData (List FieldCategory)
     , query : List QueryParameter
+    , flags : Flags
     }
 
 
@@ -45,3 +51,8 @@ update state action =
 
         NoUpdate ->
             state
+
+
+getInitial : SharedState -> { env : String } -> SharedState
+getInitial state flags =
+    { state | flags = flags }

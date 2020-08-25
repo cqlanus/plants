@@ -50,7 +50,11 @@ initModel navKey =
 
 getPlants : Int -> SharedState -> Cmd Msg
 getPlants pageNum state =
-    Request.getPlantsPage pageNum state.query getPlantsDecoder (HandleNextPage state.query)
+    let
+        isDev =
+            state.flags.env == "dev"
+    in
+    Request.getPlantsPage isDev pageNum state.query getPlantsDecoder (HandleNextPage state.query)
 
 
 type Msg

@@ -69,15 +69,19 @@ createModel navKey state =
 
 initModel : Nav.Key -> SharedState -> ( Model, Cmd Msg )
 initModel navKey state =
+    let
+        isDev =
+            state.flags.env == "dev"
+    in
     ( createModel navKey state
-    , Request.getCategories (list categoryDecoder) HandleCategories
+    , Request.getCategories isDev (list categoryDecoder) HandleCategories
     )
 
 
 view : SharedState -> Model -> Html Msg
 view state model =
     container []
-        [ h2 [] [ text "plants" ]
+        [ h2 [] [ text state.flags.env ]
         , Html.Styled.em [] [ text "select search criteria" ]
         , subContainer []
             [ renderTextCategory model ]
@@ -477,17 +481,20 @@ rebuildValues query =
     Dict.fromList qListTup
 
 
-getPlants : Model -> Cmd Msg
-getPlants model =
+getPlants : SharedState -> Model -> Cmd Msg
+getPlants state model =
     let
+        isDev =
+            state.flags.env == "dev"
+
         qs =
             createQueryString model.values
     in
-    Request.getPlants qs getPlantsDecoder (RoutePlants qs)
+    Request.getPlants isDev qs getPlantsDecoder (RoutePlants qs)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg, SharedStateUpdate )
-update msg model =
+update : Msg -> Model -> SharedState -> ( Model, Cmd Msg, SharedStateUpdate )
+update msg model state =
     case msg of
         SetValue key val ->
             let
@@ -555,4 +562,4 @@ update msg model =
             ( { model | values = Dict.empty, fields = [] }, Cmd.none, NoUpdate )
 
         Submit ->
-            ( model, getPlants model, NoUpdate )
+            ( model, getPlants state model, NoUpdate )

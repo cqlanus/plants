@@ -73,26 +73,36 @@ handleLoad state plantId =
 
         id =
             String.fromInt (plantIdToInt plantId)
+
+        isDev =
+            state.flags.env == "dev"
     in
     if shouldGetPlant then
-        Request.getPlant id getPlantsDecoder HandleGetPlant
+        Request.getPlant isDev id getPlantsDecoder HandleGetPlant
 
     else
-        getPlantImages id
+        getPlantImages state id
 
 
-getPlantImages : String -> Cmd Msg
-getPlantImages plantId =
-    Request.getPlantImages plantId plantImagesDecoder HandlePlantImages
-
-
-fetchPlantGuide : Plant -> Cmd Msg
-fetchPlantGuide plant =
+getPlantImages : SharedState -> String -> Cmd Msg
+getPlantImages state plantId =
     let
+        isDev =
+            state.flags.env == "dev"
+    in
+    Request.getPlantImages isDev plantId plantImagesDecoder HandlePlantImages
+
+
+fetchPlantGuide : SharedState -> Plant -> Cmd Msg
+fetchPlantGuide state plant =
+    let
+        isDev =
+            state.flags.env == "dev"
+
         id =
             String.fromInt (plantIdToInt plant.id)
     in
-    Request.getPlantGuide id (list guideDecoder) HandlePlantGuide
+    Request.getPlantGuide isDev id (list guideDecoder) HandlePlantGuide
 
 
 
@@ -103,7 +113,7 @@ update : Msg -> Model -> SharedState -> PlantId -> ( Model, Cmd Msg, SharedState
 update msg model state plantId =
     case msg of
         GetPlantGuide plant ->
-            ( model, fetchPlantGuide plant, NoUpdate )
+            ( model, fetchPlantGuide state plant, NoUpdate )
 
         HandlePlantGuide guide ->
             ( model, Cmd.none, SetPlantGuide guide )
@@ -119,7 +129,7 @@ update msg model state plantId =
                 id =
                     String.fromInt (plantIdToInt plantId)
             in
-            ( model, getPlantImages id, LoadPlant plants state.query plantId )
+            ( model, getPlantImages state id, LoadPlant plants state.query plantId )
 
 
 filterForPlant : PlantId -> WebData PlantsResponse -> List Plant

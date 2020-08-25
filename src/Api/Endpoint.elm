@@ -1,4 +1,4 @@
-module Api.Endpoint exposing (Endpoint, category, guide, images, plant, plantId, unwrap, url)
+module Api.Endpoint exposing (Endpoint, category, getBase, guide, images, plant, plantId, unwrap, url)
 
 import Url.Builder exposing (QueryParameter)
 
@@ -12,39 +12,48 @@ unwrap (Endpoint str) =
     str
 
 
+getBase : Bool -> String
+getBase isDev =
+    if isDev then
+        "http://localhost:9001"
+
+    else
+        "https://plants-api.chrislanus.com"
+
+
 base : String
 base =
     "http://localhost:9001"
 
 
-url : List String -> List QueryParameter -> Endpoint
-url paths queryParams =
-    Url.Builder.crossOrigin base
+url : Bool -> List String -> List QueryParameter -> Endpoint
+url isDev paths queryParams =
+    Url.Builder.crossOrigin (getBase isDev)
         paths
         queryParams
         |> Endpoint
 
 
-category : Endpoint
-category =
-    url [ "category" ] []
+category : Bool -> Endpoint
+category isDev =
+    url isDev [ "category" ] []
 
 
-plant : List QueryParameter -> Endpoint
-plant query =
-    url [ "plant" ] query
+plant : Bool -> List QueryParameter -> Endpoint
+plant isDev query =
+    url isDev [ "plant" ] query
 
 
-plantId : String -> Endpoint
-plantId id =
-    url [ "plant" ] [ Url.Builder.string "id" id ]
+plantId : Bool -> String -> Endpoint
+plantId isDev id =
+    url isDev [ "plant" ] [ Url.Builder.string "id" id ]
 
 
-guide : String -> Endpoint
-guide id =
-    url [ "plant", id, "guide" ] []
+guide : Bool -> String -> Endpoint
+guide isDev id =
+    url isDev [ "plant", id, "guide" ] []
 
 
-images : String -> Endpoint
-images id =
-    url [ "plant", id, "images" ] []
+images : Bool -> String -> Endpoint
+images isDev id =
+    url isDev [ "plant", id, "images" ] []

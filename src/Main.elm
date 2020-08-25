@@ -10,7 +10,7 @@ import Page.SelectedPlant as Selected
 import Plant exposing (PlantId(..), PlantsResponse, intToPlantId, plantIdToInt)
 import RemoteData exposing (WebData)
 import Route exposing (Route(..), redirect)
-import SharedState exposing (SharedState, SharedStateUpdate(..))
+import SharedState exposing (SharedState, SharedStateUpdate(..), getInitial)
 import Url exposing (Url)
 
 
@@ -36,11 +36,16 @@ initialAppState =
     , plant = intToPlantId 0
     , plantGuide = RemoteData.NotAsked
     , fieldCategories = RemoteData.NotAsked
+    , flags = { env = "" }
     }
 
 
-init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url navKey =
+type alias Flags =
+    { env : String }
+
+
+init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url navKey =
     let
         current =
             Route.parseUrl url
@@ -52,7 +57,7 @@ init _ url navKey =
             { route = route
             , page = NotFoundPage
             , navKey = navKey
-            , state = initialAppState
+            , state = getInitial initialAppState flags
             }
     in
     initCurrentPage ( model, cmd )
@@ -137,7 +142,7 @@ update msg model =
         ( SearchPageMsg subMsg, SearchPage pageModel ) ->
             let
                 ( updatedPageModel, updatedCmd, newSharedStateUpdate ) =
-                    Search.update subMsg pageModel
+                    Search.update subMsg pageModel model.state
 
                 nextSharedState =
                     SharedState.update model.state newSharedStateUpdate
@@ -241,7 +246,7 @@ getRoute plants currentRoute navKey url =
             ( Route.parseUrl url, Cmd.none )
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.application
         { init = init
